@@ -16,7 +16,26 @@ Hiro Store is a web-based digital store that allows customers to:
 
 The backend uses Node.js and Express, with SQLite for persistent data storage.
 
+## 📸 Screenshots
+
+### Home Page
+
+![Hiro Store Home Page](img/screenshot-home.png)
+
+### Store / Products
+
+![Hiro Store Store Page](img/screenshot-store.png)
+
+### Customer Login
+
+![Hiro Store Login](img/screenshot-login.png)
+
+### Order History
+
+![Hiro Store Orders](img/screenshot-orders.png)
+
 ## ✨ Features
+
 
 ### Customer Accounts
 - Customer registration
