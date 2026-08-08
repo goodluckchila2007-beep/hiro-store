@@ -1,0 +1,679 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Hiro Store — Admin Dashboard</title>
+
+    <meta name="description" content="Hiro Store administration dashboard">
+
+    <link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+
+    <!-- =========================
+         ADMIN APP
+    ========================== -->
+
+    <div class="admin-app">
+
+        <!-- =========================
+             SIDEBAR
+        ========================== -->
+
+        <aside class="sidebar">
+
+            <div class="sidebar-brand">
+
+                <div class="brand-icon">
+                    H
+                </div>
+
+                <div>
+                    <strong>HIRO</strong>
+                    <span>STORE ADMIN</span>
+                </div>
+
+            </div>
+
+
+            <nav class="admin-nav">
+
+                <button class="nav-item active" data-section="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </button>
+
+
+                <button class="nav-item" data-section="orders">
+                    <span class="nav-icon">🧾</span>
+                    <span>Orders</span>
+
+                    <span class="nav-badge" id="navOrderCount">
+                        0
+                    </span>
+                </button>
+
+
+                <button class="nav-item" data-section="processing">
+                    <span class="nav-icon">⏳</span>
+                    <span>Processing</span>
+
+                    <span class="nav-badge" id="navProcessingCount">
+                        0
+                    </span>
+                </button>
+
+
+                <button class="nav-item" data-section="completed">
+                    <span class="nav-icon">✅</span>
+                    <span>Completed</span>
+                </button>
+
+            </nav>
+
+
+            <div class="sidebar-bottom">
+
+                <div class="admin-status">
+                    <span class="status-dot"></span>
+
+                    <div>
+                        <strong>System Online</strong>
+                        <small>SQLite connected</small>
+                    </div>
+                </div>
+
+
+                <a href="../index.html" class="back-store">
+                    ← Back to Store
+                </a>
+
+            </div>
+
+        </aside>
+
+
+        <!-- =========================
+             MAIN CONTENT
+        ========================== -->
+
+        <main class="main-content">
+
+            <!-- TOP BAR -->
+
+            <header class="topbar">
+
+                <div class="topbar-left">
+
+                    <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Open menu">
+                        ☰
+                    </button>
+
+                    <div>
+
+                        <p class="topbar-label">
+                            HIRO STORE
+                        </p>
+
+                        <h1 id="pageTitle">
+                            Dashboard
+                        </h1>
+
+                    </div>
+
+                </div>
+
+
+                <div class="topbar-right">
+
+                    <button class="refresh-btn" id="refreshBtn" type="button">
+                        ↻
+                        <span>Refresh</span>
+                    </button>
+
+
+                    <div class="admin-profile">
+
+                        <div class="admin-avatar">
+                            A
+                        </div>
+
+                        <div>
+                            <strong>Administrator</strong>
+                            <small>Store Manager</small>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </header>
+
+
+            <!-- =========================
+                 DASHBOARD SECTION
+            ========================== -->
+
+            <section class="admin-section active" id="dashboardSection">
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>Overview</h2>
+
+                        <p>
+                            Monitor your Hiro Store orders and revenue.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <!-- STAT CARDS -->
+
+                <div class="stats-grid">
+
+                    <!-- Total Orders -->
+
+                    <div class="stat-card">
+
+                        <div class="stat-card-top">
+
+                            <div class="stat-icon orange">
+                                🧾
+                            </div>
+
+                            <span class="stat-label">
+                                TOTAL ORDERS
+                            </span>
+
+                        </div>
+
+                        <strong class="stat-value" id="totalOrders">
+                            0
+                        </strong>
+
+                        <span class="stat-description">
+                            All recorded orders
+                        </span>
+
+                    </div>
+
+
+                    <!-- Revenue -->
+
+                    <div class="stat-card">
+
+                        <div class="stat-card-top">
+
+                            <div class="stat-icon green">
+                                ₦
+                            </div>
+
+                            <span class="stat-label">
+                                TOTAL REVENUE
+                            </span>
+
+                        </div>
+
+                        <strong class="stat-value" id="totalRevenue">
+                            ₦0
+                        </strong>
+
+                        <span class="stat-description">
+                            Successful payments
+                        </span>
+
+                    </div>
+
+
+                    <!-- Processing -->
+
+                    <div class="stat-card">
+
+                        <div class="stat-card-top">
+
+                            <div class="stat-icon blue">
+                                ⏳
+                            </div>
+
+                            <span class="stat-label">
+                                PROCESSING
+                            </span>
+
+                        </div>
+
+                        <strong class="stat-value" id="processingOrders">
+                            0
+                        </strong>
+
+                        <span class="stat-description">
+                            Orders awaiting fulfillment
+                        </span>
+
+                    </div>
+
+
+                    <!-- Completed -->
+
+                    <div class="stat-card">
+
+                        <div class="stat-card-top">
+
+                            <div class="stat-icon purple">
+                                ✓
+                            </div>
+
+                            <span class="stat-label">
+                                COMPLETED
+                            </span>
+
+                        </div>
+
+                        <strong class="stat-value" id="completedOrders">
+                            0
+                        </strong>
+
+                        <span class="stat-description">
+                            Fulfilled orders
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <!-- RECENT ORDERS -->
+
+                <div class="dashboard-panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <h3>Recent Orders</h3>
+
+                            <p>
+                                Latest customer purchases
+                            </p>
+                        </div>
+
+                        <button class="view-all-btn" data-section="orders" type="button">
+                            View All →
+                        </button>
+
+                    </div>
+
+
+                    <div class="recent-orders" id="recentOrders">
+
+                        <div class="empty-state">
+
+                            <div class="empty-icon">
+                                🧾
+                            </div>
+
+                            <h4>No orders loaded</h4>
+
+                            <p>
+                                Orders from SQLite will appear here.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =========================
+                 ALL ORDERS SECTION
+            ========================== -->
+
+            <section class="admin-section" id="ordersSection">
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>Orders</h2>
+
+                        <p>
+                            View and manage every customer order.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ORDER TOOLBAR -->
+
+                <div class="orders-toolbar">
+
+                    <div class="search-box">
+
+                        <span>🔎</span>
+
+                        <input type="search" id="orderSearch" placeholder="Search order ID, reference, Player ID..."
+                            autocomplete="off">
+
+                    </div>
+
+
+                    <div class="filter-group">
+
+                        <select id="statusFilter">
+
+                            <option value="all">
+                                All Statuses
+                            </option>
+
+                            <option value="Paid">
+                                Paid
+                            </option>
+
+                            <option value="Processing">
+                                Processing
+                            </option>
+
+                            <option value="Completed">
+                                Completed
+                            </option>
+
+                            <option value="Cancelled">
+                                Cancelled
+                            </option>
+
+                        </select>
+
+
+                        <select id="dateFilter">
+
+                            <option value="all">
+                                All Dates
+                            </option>
+
+                            <option value="today">
+                                Today
+                            </option>
+
+                            <option value="week">
+                                Last 7 Days
+                            </option>
+
+                            <option value="month">
+                                Last 30 Days
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ORDERS TABLE -->
+
+                <div class="orders-panel">
+
+                    <div class="table-wrapper">
+
+                        <table class="orders-table">
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>
+                                        Order Total
+                                    </th>
+
+                                    <th>
+                                        Charged
+                                    </th>
+
+                                    <th>
+                                        Customer
+                                    </th>
+
+                                    <th>
+                                        Purchase
+                                    </th>
+
+                                    <th>
+                                        Amount
+                                    </th>
+
+                                    <th>
+                                        Status
+                                    </th>
+
+                                    <th>
+                                        Date
+                                    </th>
+
+                                    <th>
+                                        Action
+                                    </th>
+
+                                </tr>
+
+                            </thead>
+
+
+                            <tbody id="ordersTableBody">
+
+                                <tr>
+
+                                    <td colspan="7" class="table-empty">
+
+                                        <div class="empty-state">
+
+                                            <div class="empty-icon">
+                                                🧾
+                                            </div>
+
+                                            <h4>
+                                                No orders yet
+                                            </h4>
+
+                                            <p>
+                                                Customer orders will appear here.
+                                            </p>
+
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =========================
+                 PROCESSING SECTION
+            ========================== -->
+
+            <section class="admin-section" id="processingSection">
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>Processing Orders</h2>
+
+                        <p>
+                            Orders that still need to be fulfilled.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="processing-grid" id="processingOrdersList">
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            ⏳
+                        </div>
+
+                        <h4>
+                            Nothing processing
+                        </h4>
+
+                        <p>
+                            Orders requiring fulfillment will appear here.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =========================
+                 COMPLETED SECTION
+            ========================== -->
+
+            <section class="admin-section" id="completedSection">
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>Completed Orders</h2>
+
+                        <p>
+                            Orders that have been successfully fulfilled.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="completed-grid" id="completedOrdersList">
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            ✅
+                        </div>
+
+                        <h4>
+                            No completed orders
+                        </h4>
+
+                        <p>
+                            Completed orders will appear here.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <!-- =========================
+         ORDER DETAILS MODAL
+    ========================== -->
+
+    <div class="modal-overlay" id="orderModal" aria-hidden="true">
+
+        <div class="order-modal" role="dialog" aria-modal="true" aria-labelledby="orderModalTitle">
+
+            <div class="modal-header">
+
+                <div>
+
+                    <span class="modal-label">
+                        ORDER DETAILS
+                    </span>
+
+                    <h2 id="orderModalTitle">
+                        Order
+                    </h2>
+
+                </div>
+
+                <button class="modal-close" id="closeOrderModal" type="button" aria-label="Close order details">
+                    ×
+                </button>
+
+            </div>
+
+
+            <!-- MODAL CONTENT -->
+
+            <div class="modal-body" id="orderModalBody">
+
+                <div class="modal-loading">
+                    Loading order...
+                </div>
+
+            </div>
+
+
+            <!-- MODAL FOOTER -->
+
+            <div class="modal-footer">
+
+                <button class="modal-secondary-btn" id="cancelOrderModal" type="button">
+                    Close
+                </button>
+
+                <button class="modal-processing-btn" id="markProcessingBtn" type="button">
+                    ⏳ Mark Processing
+                </button>
+
+                <button class="modal-complete-btn" id="markCompletedBtn" type="button">
+                    ✓ Mark Completed
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         TOAST
+    ========================== -->
+
+    <div id="adminToastContainer" class="admin-toast-container" aria-live="polite" aria-atomic="true"></div>
+
+
+    <!-- =========================
+         JAVASCRIPT
+    ========================== -->
+
+    <script src="admin.js"></script>
+
+</body>
+
+</html>

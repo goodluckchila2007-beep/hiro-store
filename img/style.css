@@ -1,0 +1,90 @@
+/* style.css — cleaned and fixed
+   - Fixed invalid rgba alpha values
+   - Replaced 8-digit hex with rgba() for clarity
+   - Consolidated html rules and box-sizing pattern
+   - Added Orbitron font import and safe fallbacks
+   - Kept existing class names (no renames) to avoid breaking markup
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+:root{
+  --bg:#080707; /* dark background */
+  --panel:rgba(255,255,255,0.04);
+  --muted:rgba(255,255,255,0.6);
+  --accent:#ffb86b;
+  --danger:#ff5252;
+}
+
+/* Box-sizing pattern including pseudo elements */
+html{box-sizing:border-box;scroll-behavior:smooth;overflow-x:hidden}
+*,*:before,*:after{box-sizing:inherit}
+
+body{
+  margin:0;
+  font-family: 'Orbitron', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  background-color:var(--bg);
+  color:#fff;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* Common utilities */
+.container{max-width:1100px;margin:0 auto;padding:16px}
+.center{display:flex;justify-content:center;align-items:center}
+.hidden{display:none}
+
+/* Buttons */
+.btn{display:inline-block;padding:10px 14px;border-radius:8px;background:linear-gradient(90deg,#ff9800,#ff5722);color:#fff;border:0;cursor:pointer}
+.btn:focus{outline:none;box-shadow:0 0 0 3px rgba(255,152,0,0.18)}
+.btn.secondary{background:#777;color:#fff}
+.btn.danger{background:var(--danger)}
+
+/* Cards / product grid */
+.diamond-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.card{background:rgba(255,255,255,0.02);padding:12px;border-radius:12px;text-align:center}
+.card h3{margin:6px 0;font-size:1rem}
+.card p{margin:0;color:var(--muted)}
+
+/* Price and highlight */
+.price{color:var(--accent);font-weight:700}
+
+/* Cart area */
+.cart-items{min-height:60px;padding:12px}
+.cart-items p{margin:0;color:var(--muted)}
+.cart-controls{display:flex;gap:8px;align-items:center}
+.cart-qty{width:58px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#fff}
+
+/* Player verify area */
+.player-info{display:flex;gap:8px;align-items:center}
+.player-info input[type='text']{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#fff}
+.verify-btn{padding:8px 12px;border-radius:8px;background:linear-gradient(90deg,#ff9800,#ff5722);border:0;color:#fff}
+.player-result{color:var(--muted);margin-left:8px}
+
+/* Login popup */
+.login-popup{position:absolute;right:16px;top:56px;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);padding:12px;border-radius:10px;display:none}
+.login-popup[aria-hidden='false']{display:block}
+.login-btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 10px;border-radius:8px;color:#fff}
+
+/* Accessibility focus helpers */
+a:focus,button:focus,input:focus{outline:none;box-shadow:0 0 0 3px rgba(255,255,255,0.06)}
+
+/* Hero / banner */
+.hero{position:relative;overflow:hidden;border-radius:12px}
+.hero img{display:block;width:100%;height:300px;object-fit:cover}
+
+/* Utility for brand image (.png kept as class name to avoid breaking markup) */
+.png{width:80px;height:auto;display:block}
+.brand-pill{display:flex;align-items:center;gap:8px}
+
+/* Shadows and small visual tweaks */
+.card, .login-popup{box-shadow:0 6px 18px rgba(0,0,0,0.4)}
+
+/* Fixes for previously invalid rgba values — ensure alpha is between 0 and 1 */
+.shadow-strong{box-shadow:0 0 15px rgba(0,0,0,0.4)}
+
+/* Small screens adjustments */
+@media (max-width:600px){
+  .diamond-grid{grid-template-columns:repeat(2,1fr)}
+  .hero img{height:180px}
+}
