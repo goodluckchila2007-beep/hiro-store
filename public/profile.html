@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Manage your Hiro Store account, avatar, and order history.">
+    <title>My Account | Hiro Store</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="img/icon.jpeg">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Poppins:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        .profile-page {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 100px 20px 60px;
+        }
+
+        .profile-greeting-card {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            margin-bottom: 20px;
+            background: var(--bg-darker, #05070b);
+            border: 1px solid rgba(45, 212, 191, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 0 25px rgba(45, 212, 191, 0.06);
+        }
+
+        .profile-greeting-card img {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 2px solid rgba(45, 212, 191, 0.4);
+            flex-shrink: 0;
+        }
+
+        .profile-greeting-card h1 {
+            font-size: 18px;
+            margin: 0 0 4px;
+            color: var(--text-light, #fff);
+            line-height: 1.3;
+        }
+
+        .profile-greeting-card p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--text-muted, rgba(255, 255, 255, 0.6));
+        }
+
+        .profile-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            background: var(--bg-darker, #05070b);
+            border: 1px solid rgba(45, 212, 191, 0.15);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 14px;
+            cursor: pointer;
+            transition: border-color 0.2s ease, transform 0.15s ease;
+        }
+
+        .profile-card:hover {
+            border-color: rgba(45, 212, 191, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .profile-card-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .profile-card-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: var(--gradient-main, linear-gradient(135deg, #2dd4bf, #f5a623));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .profile-card-text strong {
+            display: block;
+            color: var(--text-light, #fff);
+            font-size: 15px;
+            margin-bottom: 2px;
+        }
+
+        .profile-card-text span {
+            font-size: 12px;
+            color: var(--text-muted, rgba(255, 255, 255, 0.55));
+        }
+
+        .profile-card-arrow {
+            color: var(--teal, #2dd4bf);
+            font-size: 18px;
+        }
+
+        /* Account details panel */
+        .account-details-panel {
+            display: none;
+            background: var(--bg-darker, #05070b);
+            border: 1px solid rgba(45, 212, 191, 0.15);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 14px;
+        }
+
+        .account-details-panel.open {
+            display: block;
+        }
+
+        .account-details-panel label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted, rgba(255, 255, 255, 0.55));
+            margin: 14px 0 6px;
+        }
+
+        .account-details-panel input {
+            width: 100%;
+            padding: 11px 14px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(45, 212, 191, 0.2);
+            color: var(--text-light, #fff);
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .account-details-panel input:disabled {
+            opacity: 0.6;
+        }
+
+        .change-avatar-toggle {
+            margin-top: 14px;
+            background: rgba(45, 212, 191, 0.08);
+            border: 1px solid rgba(45, 212, 191, 0.3);
+            color: var(--teal, #2dd4bf);
+            padding: 9px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .avatar-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .avatar-option {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.2s ease, transform 0.15s ease;
+        }
+
+        .avatar-option:hover {
+            transform: scale(1.06);
+        }
+
+        .avatar-option.selected {
+            border-color: var(--amber, #f5a623);
+        }
+
+        .save-profile-btn {
+            margin-top: 20px;
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 12px;
+            background: var(--gradient-main, linear-gradient(135deg, #2dd4bf, #f5a623));
+            color: var(--bg-darker, #05070b);
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .profile-loading {
+            text-align: center;
+            color: var(--text-muted, rgba(255, 255, 255, 0.5));
+            padding: 60px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="trust-strip">
+        <span>⚡ Fast delivery</span>
+        <span>✓ Secure payment</span>
+        <span>🎧 24/7 support</span>
+    </div>
+    <div class="nav-wrapper">
+        <button class="mobile-menu-btn" type="button" aria-label="Open menu">
+            ☰
+        </button>
+        <div class="brand-pill">
+            <a href="index.html"><img class="png" src="img/icon.jpeg" alt="Hiro"></a>
+            <div class="brand-text">
+                <strong>Hiro Store</strong>
+                <span>Instant, Secure, Affordable.</span>
+            </div>
+        </div>
+
+        <nav class="pill-links" id="mobileMenu">
+            <a href="index.html#home" class="pill-link">
+                <span class="pill-icon"><img src="img/home.png" alt=""></span> Home
+            </a>
+            <a href="index.html#cart" class="pill-link cart-link">
+                <span class="pill-icon cart-icon">
+                    <img src="img/trolley.png" alt="">
+                    <span id="cartCount" class="cart-count">0</span> </span>
+                Cart
+            </a>
+            <a href="profile.html" class="pill-link active">
+                <span class="pill-icon"><img src="img/profile.png" alt=""></span>Profile
+            </a>
+        </nav>
+
+        <div class="action-group">
+            <button class="logout-btn" id="profileLogoutBtn">Logout</button>
+        </div>
+    </div>
+
+    <main class="profile-page" id="profilePage">
+        <div class="profile-loading">Loading your account...</div>
+    </main>
+
+    <div id="complaintModal" class="checkout-modal" style="display: none;">
+        <div class="checkout-box chat-box">
+            <button type="button" class="close-complaint" aria-label="Close">&times;</button>
+            <h2>Chat with Support</h2>
+            <p class="complaint-order-ref"></p>
+            <div id="chatThread" class="chat-thread"></div>
+            <div class="chat-input-row">
+                <textarea id="chatMessageInput" rows="2" placeholder="Type your message..."></textarea>
+                <button type="button" id="sendChatBtn">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer"></div>
+
+    <script src="app.js" defer></script>
+    <script src="profile.js" defer></script>
+</body>
+
+</html>

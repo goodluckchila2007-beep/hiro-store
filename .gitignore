@@ -1,11 +1,17 @@
+.env
+.env.*
+!.env.example
+
 node_modules/
 
-.env
-server/.env
+hiro-store.db
+hiro-store.db-shm
+hiro-store.db-wal
+hiro-sessions.db
 
 *.db
 *.db-shm
 *.db-wal
 
-.vscode/
+npm-debug.log*
 .DS_Store

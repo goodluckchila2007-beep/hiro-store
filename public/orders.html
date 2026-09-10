@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="View your Hiro Store order history.">
+    <title>My Orders | Hiro Store</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="img/icon.jpeg">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Poppins:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        .orders-page {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 100px 20px 60px;
+        }
+
+        .orders-page-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .orders-back-link {
+            color: var(--teal, #2dd4bf);
+            text-decoration: none;
+            font-size: 20px;
+        }
+
+        .orders-page-header h1 {
+            font-size: 20px;
+            margin: 0;
+            color: var(--text-light, #fff);
+        }
+
+        .no-orders {
+            text-align: center;
+            color: var(--text-muted, rgba(255, 255, 255, 0.5));
+            padding: 60px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="trust-strip">
+        <span>⚡ Fast delivery</span>
+        <span>✓ Secure payment</span>
+        <span>🎧 24/7 support</span>
+    </div>
+    <div class="nav-wrapper">
+        <button class="mobile-menu-btn" type="button" aria-label="Open menu">
+            ☰
+        </button>
+        <div class="brand-pill">
+            <a href="index.html"><img class="png" src="img/icon.jpeg" alt="Hiro"></a>
+            <div class="brand-text">
+                <strong>Hiro Store</strong>
+                <span>Instant, Secure, Affordable.</span>
+            </div>
+        </div>
+
+        <nav class="pill-links" id="mobileMenu">
+            <a href="index.html#home" class="pill-link">
+                <span class="pill-icon"><img src="img/home.png" alt=""></span> Home
+            </a>
+            <a href="profile.html" class="pill-link">
+                <span class="pill-icon"><img src="img/profile.png" alt=""></span>Profile
+            </a>
+            <a href="index.html#cart" class="pill-link cart-link">
+                <span class="pill-icon cart-icon">
+                    <img src="img/trolley.png" alt="">
+                    <span id="cartCount" class="cart-count">0</span> </span>
+                Cart
+            </a>
+        </nav>
+
+        <div class="action-group">
+            <button class="logout-btn" id="ordersLogoutBtn">Logout</button>
+        </div>
+    </div>
+
+    <main class="orders-page">
+        <div class="orders-page-header">
+            <a href="profile.html" class="orders-back-link" aria-label="Back to profile">←</a>
+            <h1>My Orders</h1>
+        </div>
+        <div id="ordersContainer">
+            <p class="no-orders">Loading your orders...</p>
+        </div>
+    </main>
+
+    <div id="toastContainer"></div>
+
+    <script src="orders.js" defer></script>
+</body>
+
+</html>
