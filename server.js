@@ -3,15 +3,6 @@ const path = require("path");
 require("dotenv").config({
     path: path.join(__dirname, ".env")
 });
-console.log("FZR key loaded:", !!process.env.FZR_API_KEY);
-
-console.log(
-    "Loaded .env from:",
-    path.join(__dirname, ".env"),
-    "PAYSTACK_PRESENT:",
-    !!process.env.PAYSTACK_SECRET_KEY
-);
-
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
@@ -23,6 +14,7 @@ const rateLimit = require("express-rate-limit");
 const SqliteStore = require("better-sqlite3-session-store")(session);
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+let smtpStatus = "checking";
 process.on("uncaughtException", (error) => {
     console.error("UNCAUGHT EXCEPTION � process will exit:", error);
     process.exit(1);
@@ -38,6 +30,25 @@ const FZR_EXCHANGE_RATE = Number(process.env.FZR_EXCHANGE_RATE || 1400);
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "https://hirostore.site";
 
 const isProduction = process.env.NODE_ENV === "production";
+const logger = {
+    info: (...args) => {
+        console.log(...args);
+    },
+
+    warn: (...args) => {
+        console.warn(...args);
+    },
+
+    error: (...args) => {
+        console.error(...args);
+    },
+
+    debug: (...args) => {
+        if (!isProduction) {
+            console.log(...args);
+        }
+    }
+};
 if (isProduction) console.log = () => { };
 
 
@@ -78,7 +89,21 @@ app.get("/", (req, res, next) => {
     next();
 });
 
-app.use(express.static(path.join(__dirname, "public")));
+// Keep the public homepage URL canonical and clean.
+app.get("/index.html", (req, res) => {
+    return res.redirect(301, "/");
+});
+
+app.use(express.static(path.join(__dirname, "public"), {
+    setHeaders: (res, filePath) => {
+        if (/\.(?:html|js|css)$/i.test(filePath)) {
+            res.setHeader(
+                "Cache-Control",
+                "no-store, no-cache, must-revalidate, proxy-revalidate"
+            );
+        }
+    }
+}));
 
 /* =========================================================
    PAYSTACK WEBHOOK
@@ -142,6 +167,11 @@ app.post(
                 event.event
             );
 
+            setSetting(
+                "last_paystack_webhook_at",
+                new Date().toISOString()
+            );
+
             /* -------------------------------------------------
                ONLY PROCESS SUCCESSFUL PAYMENTS
             ------------------------------------------------- */
@@ -179,17 +209,111 @@ app.post(
             `).get(reference);
 
             if (!order) {
+
                 console.error(
                     "Paystack webhook: Order not found:",
                     reference
                 );
 
-                // The order may be created a moment later by
-                // /verify-payment. Return a retryable response instead of
-                // acknowledging the event and permanently losing it.
-                return res.status(500).json({
+                const metadata =
+                    payment.metadata || {};
+
+                const customer =
+                    payment.customer || {};
+
+                db.prepare(`
+        INSERT INTO unmatched_payments (
+            reference,
+            amount,
+            currency,
+            email,
+            phone,
+            player_id,
+            server_id,
+            paystack_status,
+            paid_at,
+            metadata_json,
+            resolution_status,
+            created_at
+        )
+        VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Unresolved', ?
+        )
+
+        ON CONFLICT(reference)
+        DO UPDATE SET
+            amount = excluded.amount,
+            currency = excluded.currency,
+            email = excluded.email,
+            phone = excluded.phone,
+            player_id = excluded.player_id,
+            server_id = excluded.server_id,
+            paystack_status = excluded.paystack_status,
+            paid_at = excluded.paid_at,
+            metadata_json = excluded.metadata_json
+    `).run(
+                    reference,
+
+                    Number(
+                        payment.amount || 0
+                    ),
+
+                    String(
+                        payment.currency || "NGN"
+                    ),
+
+                    String(
+                        customer.email ||
+                        metadata.email ||
+                        ""
+                    ),
+
+                    String(
+                        customer.phone ||
+                        metadata.phone ||
+                        ""
+                    ),
+
+                    String(
+                        metadata.player_id ||
+                        ""
+                    ),
+
+                    String(
+                        metadata.server_id ||
+                        ""
+                    ),
+
+                    String(
+                        payment.status ||
+                        ""
+                    ),
+
+                    payment.paid_at ||
+                    null,
+
+                    JSON.stringify(
+                        metadata
+                    ),
+
+                    new Date().toISOString()
+                );
+
+                return res.status(200).json({
                     success: true,
-                    message: "Order not found yet; retry webhook delivery."
+                    message:
+                        "Payment stored for reconciliation."
+                });
+            }
+
+            if (order.status === "Refunded") {
+                logger.warn(
+                    `Paystack webhook ignored for refunded order ${order.order_id}`
+                );
+
+                return res.status(200).json({
+                    success: true,
+                    message: "Refunded order left unchanged."
                 });
             }
 
@@ -262,27 +386,21 @@ app.post(
             }
 
             /* -------------------------------------------------
-               ALREADY PAID?
-            ------------------------------------------------- */
+                PAYMENT STATE
+           ------------------------------------------------- */
 
             if (order.status === "Paid") {
 
                 console.log(
-                    `Paystack webhook: Order ${order.order_id} already paid`
+                    `Paystack webhook: Order ${order.order_id} already paid; checking pending fulfillment`
                 );
-
-                return res.status(200).json({
-                    success: true,
-                    message: "Already processed"
-                });
             }
 
             /* -------------------------------------------------
                MARK ORDER PAID
             ------------------------------------------------- */
 
-            const paidAt =
-                new Date().toISOString();
+            const paidAt = payment.paid_at || payment.transaction_date || new Date().toISOString();
 
             const updateOrder = db.prepare(`
                 UPDATE orders
@@ -291,7 +409,7 @@ app.post(
                     amount_charged = ?,
                     paid_at = ?
                 WHERE reference = ?
-                  AND status != 'Paid'
+                  AND status NOT IN ('Paid', 'Refunded')
             `);
 
             const result = updateOrder.run(
@@ -299,10 +417,43 @@ app.post(
                 paidAt,
                 reference
             );
+            finance.recordFee(reference, payment, "webhook");
 
-            console.log(
-                `Paystack webhook: Order ${order.order_id} marked Paid`
-            );
+            if (result.changes === 1) {
+                console.log(
+                    `Paystack webhook: Order ${order.order_id} marked Paid`
+                );
+            } else {
+                console.log(
+                    `Paystack webhook: Order ${order.order_id} was already Paid`
+                );
+            }
+
+            /* -------------------------------------------------
+               AUTO FULFILLMENT CONTROL
+
+               Payment is already recorded as Paid above. If auto
+               fulfillment is disabled, leave items Pending so an
+               admin can explicitly submit them later.
+            ------------------------------------------------- */
+
+            const autoFulfillmentEnabled =
+                getSetting(
+                    "auto_fulfillment_enabled",
+                    "1"
+                ) === "1";
+
+            if (!autoFulfillmentEnabled) {
+                logger.info(
+                    `Auto fulfillment disabled; order ${order.order_id} remains Paid with Pending item(s).`
+                );
+
+                return res.status(200).json({
+                    success: true,
+                    message:
+                        "Payment recorded. Automatic fulfillment is disabled."
+                });
+            }
 
             /* -------------------------------------------------
                GET PENDING ORDER ITEMS
@@ -394,6 +545,7 @@ app.post(
                         "========================================"
                     );
 
+
                     const fzrResult =
                         await createFzrTopup({
                             offerId: orderItem.offer_id,
@@ -409,30 +561,8 @@ app.post(
                         fzrResult?.order?.status ||
                         "created";
 
-                    const normalizedStatus =
-                        String(fzrStatus)
-                            .toLowerCase();
-
-                    let fulfillmentStatus =
-                        "Processing";
-
-                    if (
-                        normalizedStatus === "completed" ||
-                        normalizedStatus === "success" ||
-                        normalizedStatus === "successful"
-                    ) {
-                        fulfillmentStatus =
-                            "Completed";
-                    }
-
-                    else if (
-                        normalizedStatus === "failed" ||
-                        normalizedStatus === "cancelled" ||
-                        normalizedStatus === "canceled"
-                    ) {
-                        fulfillmentStatus =
-                            "Failed";
-                    }
+                    const fulfillmentStatus =
+                        mapFzrStatusToFulfillmentStatus(fzrStatus);
 
                     db.prepare(`
                         UPDATE order_items
@@ -463,13 +593,15 @@ app.post(
                         fzrError.message
                     );
 
+                    const failure = fzrFailureDetails(fzrError);
+
                     db.prepare(`
                         UPDATE order_items
-                        SET fulfillment_status = 'Failed'
+                        SET fulfillment_status = ?, fulfillment_error = ?
                         WHERE id = ?
-                    `).run(orderItem.id);
+                    `).run(failure.status, failure.message, orderItem.id);
 
-                    sendFulfillmentFailureAlert(orderItem, fzrError.message);
+                    sendFulfillmentFailureAlert(orderItem, failure.message, failure.status);
 
                     fulfillmentResults.push({
                         itemId: orderItem.id,
@@ -724,14 +856,107 @@ const mailTransporter = nodemailer.createTransport({
 });
 mailTransporter.verify()
     .then(() => {
-        console.log("✅ SMTP email service ready.");
+
+        smtpStatus = "ready";
+
+        logger.info(
+            "✅ SMTP email service ready."
+        );
+
     })
-    .catch((error) => {
-        console.error(
-            "❌ SMTP email service error:",
+    .catch(error => {
+
+        smtpStatus = "error";
+
+        logger.error(
+            "SMTP verification failed:",
             error.message
         );
     });
+
+async function sendAdminNotification({
+    subject,
+    text,
+    type
+}) {
+    try {
+        if (
+            getSetting(
+                "notifications_enabled",
+                "1"
+            ) !== "1"
+        ) {
+            return;
+        }
+
+        const typeSettingMap = {
+            failed_fulfillment:
+                "notify_failed_fulfillment",
+
+            new_complaint:
+                "notify_new_complaint",
+
+            payment_error:
+                "notify_payment_error",
+
+            paid_order:
+                "notify_paid_order"
+        };
+
+        const settingKey =
+            typeSettingMap[type];
+
+        if (
+            settingKey &&
+            getSetting(
+                settingKey,
+                "1"
+            ) !== "1"
+        ) {
+            return;
+        }
+
+        const notificationEmail =
+            String(
+                getSetting(
+                    "notification_email",
+                    process.env.SMTP_USER || ""
+                )
+            ).trim();
+
+        if (!notificationEmail) {
+            logger.warn(
+                "Admin notification skipped: no notification email configured."
+            );
+
+            return;
+        }
+
+        await mailTransporter.sendMail({
+            from:
+                `"Hiro Store Alerts" <${process.env.SMTP_USER}>`,
+
+            to:
+                notificationEmail,
+
+            subject,
+
+            text
+        });
+
+    } catch (error) {
+
+        /*
+         * IMPORTANT:
+         * Notification failure must NEVER
+         * break payment or fulfillment.
+         */
+        logger.error(
+            "Admin notification failed:",
+            error.message
+        );
+    }
+}
 
 /* =========================================================
    PAYSTACK
@@ -865,6 +1090,7 @@ addOrderItemColumn(
     "fulfillment_status",
     "TEXT NOT NULL DEFAULT 'Pending'"
 );
+addOrderItemColumn("fulfillment_error", "TEXT");
 
 console.log("Order items table ready.");
 
@@ -1025,8 +1251,82 @@ if (getSetting("maintenance_mode", null) === null) {
 if (getSetting("usd_ngn_rate", null) === null) {
     setSetting("usd_ngn_rate", String(FZR_EXCHANGE_RATE));
 }
+if (getSetting("payments_enabled", null) === null) {
+    setSetting("payments_enabled", "1");
+}
+
+if (getSetting("auto_fulfillment_enabled", null) === null) {
+    setSetting("auto_fulfillment_enabled", "1");
+}
+
+if (getSetting("max_quantity", null) === null) {
+    setSetting("max_quantity", "20");
+}
+
+if (getSetting("pending_order_expiry_hours", null) === null) {
+    setSetting("pending_order_expiry_hours", "24");
+}
+
+if (getSetting("store_announcement", null) === null) {
+    setSetting("store_announcement", "");
+}
+
+if (getSetting("notifications_enabled", null) === null) {
+    setSetting("notifications_enabled", "1");
+}
+
+if (getSetting("notify_failed_fulfillment", null) === null) {
+    setSetting("notify_failed_fulfillment", "1");
+}
+
+if (getSetting("notify_new_complaint", null) === null) {
+    setSetting("notify_new_complaint", "1");
+}
+
+if (getSetting("notify_payment_error", null) === null) {
+    setSetting("notify_payment_error", "1");
+}
+
+if (getSetting("notify_paid_order", null) === null) {
+    setSetting("notify_paid_order", "0");
+}
+
+if (getSetting("notification_email", null) === null) {
+    setSetting(
+        "notification_email",
+        process.env.SMTP_USER || ""
+    );
+}
 
 console.log("Store settings table ready.");
+
+db.prepare(`
+    CREATE TABLE IF NOT EXISTS unmatched_payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        reference TEXT NOT NULL UNIQUE,
+
+        amount INTEGER NOT NULL DEFAULT 0,
+        currency TEXT NOT NULL DEFAULT 'NGN',
+
+        email TEXT,
+        phone TEXT,
+
+        player_id TEXT,
+        server_id TEXT,
+
+        paystack_status TEXT,
+        paid_at TEXT,
+
+        metadata_json TEXT,
+
+        resolution_status TEXT NOT NULL DEFAULT 'Unresolved',
+
+        created_at TEXT NOT NULL
+    )
+`).run();
+
+console.log("Unmatched payments table ready.");
 
 
 /* =========================================================
@@ -1035,26 +1335,103 @@ console.log("Store settings table ready.");
 
 function repairOldOrders() {
     const oldOrders = db.prepare(`
-        SELECT order_id, amount, order_total, amount_charged
+        SELECT
+            order_id,
+            amount,
+            order_total,
+            amount_charged,
+            status,
+            paid_at
         FROM orders
-        WHERE order_total = 0 OR amount_charged = 0
+        WHERE
+            order_total = 0
+
+            OR (
+                amount_charged = 0
+
+                AND (
+                    paid_at IS NOT NULL
+
+                    OR status IN (
+                        'Paid',
+                        'Processing',
+                        'Completed'
+                    )
+                )
+            )
     `).all();
 
-    const getItems = db.prepare(`SELECT price, quantity FROM order_items WHERE order_id = ?`);
-    const updateOrder = db.prepare(`UPDATE orders SET order_total = ?, amount_charged = ? WHERE order_id = ?`);
+    const getItems =
+        db.prepare(`
+            SELECT
+                price,
+                quantity
+            FROM order_items
+            WHERE order_id = ?
+        `);
+
+    const updateOrder =
+        db.prepare(`
+            UPDATE orders
+            SET
+                order_total = ?,
+                amount_charged = ?
+            WHERE order_id = ?
+        `);
 
     for (const order of oldOrders) {
-        const items = getItems.all(order.order_id);
-        const calculatedOrderTotal = items.reduce((sum, item) => {
-            const price = Number(item.price || 0);
-            const quantity = Number(item.quantity || 1);
-            return sum + (price * quantity);
-        }, 0);
+        const items =
+            getItems.all(
+                order.order_id
+            );
 
-        const existingCharged = Number(order.amount_charged || order.amount || 0);
-        updateOrder.run(calculatedOrderTotal, existingCharged, order.order_id);
+        const calculatedOrderTotal =
+            items.reduce(
+                (sum, item) => {
+                    const price =
+                        Number(
+                            item.price || 0
+                        );
 
-        console.log(`Repaired order ${order.order_id}: Order Total = ₦${calculatedOrderTotal.toLocaleString()}, Amount Charged = ₦${(existingCharged / 100).toLocaleString()}`);
+                    const quantity =
+                        Number(
+                            item.quantity || 1
+                        );
+
+                    return (
+                        sum +
+                        price * quantity
+                    );
+                },
+                0
+            );
+
+        const isPaidOrder =
+            Boolean(order.paid_at) ||
+            [
+                "Paid",
+                "Processing",
+                "Completed"
+            ].includes(order.status);
+
+        const existingCharged =
+            isPaidOrder
+                ? Number(
+                    order.amount_charged ||
+                    order.amount ||
+                    0
+                )
+                : 0;
+
+        updateOrder.run(
+            calculatedOrderTotal,
+            existingCharged,
+            order.order_id
+        );
+
+        logger.debug(
+            `Repaired order ${order.order_id}`
+        );
     }
 }
 
@@ -1186,10 +1563,7 @@ const upsertFzrProduct = db.prepare(`
     )
     ON CONFLICT (category_id, offer_id)
 
-    DO UPDATE SET
-        title = excluded.title,
-        supplier_price_usd = excluded.supplier_price_usd,
-        updated_at = excluded.updated_at
+    DO NOTHING
 `);
 
 const syncFzrProducts = db.transaction(() => {
@@ -1258,7 +1632,7 @@ app.post("/api/validate-player", apiLimiter, async (req, res) => {
 
         const data = await fzrResponse.json();
 
-        console.log("FZR validation:", data);
+        logger.debug("FZR player validation completed.");
 
         return res.status(fzrResponse.status).json(data);
 
@@ -1280,181 +1654,472 @@ console.log("✅ /api/validate-player route registered");
 
 const FZR_API_URL = "https://api.fzr.cards/api/v2";
 
-async function createFzrTopup({
-    offerId,
-    categoryId,
-    playerId,
-    serverId
-}) {
-    if (!process.env.FZR_API_KEY) {
-        throw new Error("FZR_API_KEY is missing.");
+// Supplier costs persist across restarts; catalog seeds only insert missing products.
+const finance = require("./hiro-finance").createFinance({
+    db, axios, getSetting, setSetting,
+    exchangeRateFallback: FZR_EXCHANGE_RATE,
+    apiKey: process.env.FZR_API_KEY,
+    paystackKey: PAYSTACK_SECRET_KEY
+});
+
+app.get("/api/admin/profit", requireAdmin, async (req, res) => {
+    try {
+        await finance.refreshPrices();
+        return res.json({ success: true, profit: finance.overview(String(req.query.period || "7")) });
+    } catch (error) {
+        logger.error("Profit report unavailable:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load profit report." });
+    }
+});
+
+app.post("/api/admin/paystack-fees/recover", requireAdmin, async (req, res) => {
+    try {
+        const result = await finance.recoverFees();
+        if (result.busy) return res.status(409).json({ success: false, message: "Fee recovery is already running." });
+        return res.json({ success: true, ...result });
+    } catch (error) {
+        logger.error("Fee recovery unavailable:", error.message);
+        return res.status(502).json({ success: false, message: "Unable to recover fees right now." });
+    }
+});
+
+
+function mapFzrStatusToFulfillmentStatus(status) {
+    const normalizedStatus =
+        String(status || "").toLowerCase();
+
+    if (
+        ["completed", "success", "successful"]
+            .includes(normalizedStatus)
+    ) {
+        return "Completed";
     }
 
-    if (!offerId) {
-        throw new Error("FZR offer ID is missing.");
+    if (
+        [
+            "failed",
+            "cancelled",
+            "canceled",
+            "refunded",
+            "refund"
+        ].includes(normalizedStatus)
+    ) {
+        return "Failed";
     }
 
-    if (!playerId) {
-        throw new Error("Mobile Legends player ID is missing.");
-    }
+    return "Processing";
+}
 
-    if (!serverId) {
-        throw new Error("Mobile Legends server ID is missing.");
+class FzrSubmissionError extends Error {
+    constructor(message, outcomeUnknown = false, httpStatus = null) {
+        super(message);
+        this.name = "FzrSubmissionError";
+        this.outcomeUnknown = outcomeUnknown;
+        this.httpStatus = httpStatus;
     }
+}
+
+function fzrFailureDetails(error) {
+    return {
+        status: error?.outcomeUnknown ? "Review Required" : "Failed",
+        message: String(error?.message || "Unknown FZR error").trim().slice(0, 500)
+    };
+}
+
+async function createFzrTopup({ offerId, categoryId, playerId, serverId }) {
+    if (!process.env.FZR_API_KEY) throw new FzrSubmissionError("FZR_API_KEY is missing.");
+    if (!offerId) throw new FzrSubmissionError("FZR offer ID is missing.");
+    if (!playerId) throw new FzrSubmissionError("Mobile Legends player ID is missing.");
+    if (!serverId) throw new FzrSubmissionError("Mobile Legends server ID is missing.");
 
     const allowedFzrCategories = ["mobile_legends_global", "mobile_legends_philippines"];
-    const resolvedCategoryId = allowedFzrCategories.includes(categoryId)
-        ? categoryId
-        : "mobile_legends_global";
+    const resolvedCategoryId = allowedFzrCategories.includes(categoryId) ? categoryId : "mobile_legends_global";
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
-    const response = await fetch(
-        `${FZR_API_URL}/topups/order`,
-        {
+    try {
+        const response = await fetch(`${FZR_API_URL}/topups/order`, {
             method: "POST",
-
             headers: {
-                "Accept": "application/json",
+                Accept: "application/json",
                 "Content-Type": "application/json",
                 "X-API-Key": process.env.FZR_API_KEY
             },
-
             body: JSON.stringify({
                 category_id: resolvedCategoryId,
-
                 offer_id: String(offerId),
+                fields: { player_id: String(playerId), server_id: String(serverId) }
+            }),
+            signal: controller.signal
+        });
 
-                fields: {
-                    player_id: String(playerId),
-                    server_id: String(serverId)
-                }
-            })
+        const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+        const rawBody = await response.text();
+        let data = null;
+        try { data = rawBody ? JSON.parse(rawBody) : null; } catch { data = null; }
+
+        if (!data || typeof data !== "object") {
+            const message = response.status >= 500
+                ? `FZR is temporarily unavailable (HTTP ${response.status}).`
+                : `FZR returned an unexpected ${contentType || "non-JSON"} response (HTTP ${response.status}).`;
+            throw new FzrSubmissionError(message, true, response.status);
         }
-    );
 
-    const data = await response.json();
+        logger.info(`FZR topup response: HTTP ${response.status}, ${data.ok ? "success" : "failed"}`);
 
-    console.log("FZR topup response:", data.ok ? "success" : "failed", data.error || "");
+        if (!response.ok || !data.ok) {
+            const message = String(data.error || data.message || `FZR returned HTTP ${response.status}.`);
+            throw new FzrSubmissionError(message, response.status >= 500, response.status);
+        }
 
-    if (!response.ok || !data.ok) {
-        throw new Error(
-            data.error ||
-            data.message ||
-            `FZR returned HTTP ${response.status}`
-        );
+        if (!data.order?.id) {
+            throw new FzrSubmissionError("FZR accepted the request but did not return an order ID.", true, response.status);
+        }
+
+        return data;
+    } catch (error) {
+        if (error instanceof FzrSubmissionError) throw error;
+        if (error?.name === "AbortError") {
+            throw new FzrSubmissionError("FZR request timed out. The supplier outcome is unknown.", true);
+        }
+        throw new FzrSubmissionError(`Could not reach FZR: ${String(error?.message || "network error")}. The supplier outcome is unknown.`, true);
+    } finally {
+        clearTimeout(timeout);
     }
-
-    return data;
 }
 
 
 async function getFzrOrderStatus(fzrOrderId) {
+    const controller =
+        new AbortController();
 
-    if (!process.env.FZR_API_KEY) {
-        throw new Error("FZR_API_KEY is missing.");
-    }
-
-    if (!fzrOrderId) {
-        throw new Error("FZR order ID is missing.");
-    }
-
-    const response = await fetch(
-        `${FZR_API_URL}/orders/${encodeURIComponent(fzrOrderId)}`,
-        {
-            method: "GET",
-
-            headers: {
-                "Accept": "application/json",
-                "X-API-Key": process.env.FZR_API_KEY
-            }
-        }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok || !data.ok || !data.order) {
-        throw new Error(
-            data.error ||
-            `FZR order status request failed with HTTP ${response.status}.`
+    const timeout =
+        setTimeout(
+            () => controller.abort(),
+            8000
         );
-    }
 
-    return data.order;
+    try {
+        const response = await fetch(
+            `${FZR_API_URL}/orders/${encodeURIComponent(fzrOrderId)}`,
+            {
+                method: "GET",
+
+                headers: {
+                    Accept: "application/json",
+                    "X-API-Key":
+                        process.env.FZR_API_KEY
+                },
+
+                signal:
+                    controller.signal
+            }
+        );
+
+        /*
+         * Read as text first.
+         *
+         * FZR has occasionally returned HTML
+         * error pages, so response.json() directly
+         * is unsafe.
+         */
+        const rawBody =
+            await response.text();
+
+        let data;
+
+        try {
+            data =
+                rawBody
+                    ? JSON.parse(rawBody)
+                    : {};
+        } catch {
+            throw new Error(
+                `FZR returned non-JSON response (HTTP ${response.status}).`
+            );
+        }
+
+        if (
+            !response.ok ||
+            !data.ok ||
+            !data.order
+        ) {
+            throw new Error(
+                data.error ||
+                data.message ||
+                `FZR order status request failed with HTTP ${response.status}.`
+            );
+        }
+
+        return data.order;
+
+    } catch (error) {
+
+        if (error.name === "AbortError") {
+            throw new Error(
+                "FZR status request timed out."
+            );
+        }
+
+        throw error;
+
+    } finally {
+
+        clearTimeout(timeout);
+    }
 }
 
+const fzrPollState = new Map();
+
+let fzrCheckerRunning = false;
+
+const FZR_POLL_BASE_DELAY =
+    30 * 1000;
+
+const FZR_POLL_MAX_DELAY =
+    15 * 60 * 1000;
+
+const FZR_POLL_MAX_FAILURES =
+    6;
+
 async function checkPendingFzrOrders() {
+
+    /*
+     * Prevent overlapping checker runs.
+     */
+    if (fzrCheckerRunning) {
+        return;
+    }
+
+    fzrCheckerRunning = true;
+
     try {
-        const pendingItems = db.prepare(`
-            SELECT
-                id,
-                order_id,
-                fzr_order_id
-            FROM order_items
-            WHERE fulfillment_status = 'Processing'
-              AND fzr_order_id IS NOT NULL
-              AND fzr_order_id != ''
-        `).all();
+
+        /*
+         * Only check FZR orders belonging to
+         * Hiro orders that are actually Paid.
+         */
+        const pendingItems =
+            db.prepare(`
+                SELECT
+                    oi.id,
+                    oi.order_id,
+                    oi.fzr_order_id
+                FROM order_items oi
+
+                INNER JOIN orders o
+                    ON o.order_id =
+                       oi.order_id
+
+                WHERE
+                    oi.fulfillment_status =
+                        'Processing'
+
+                    AND oi.fzr_order_id
+                        IS NOT NULL
+
+                    AND oi.fzr_order_id
+                        != ''
+
+                    AND o.status =
+                        'Paid'
+            `).all();
 
         if (!pendingItems.length) {
             return;
         }
 
-        console.log(
-            `Checking ${pendingItems.length} pending FZR item(s)...`
-        );
+        const now =
+            Date.now();
 
-        for (const item of pendingItems) {
-            try {
-                const fzrOrder =
-                    await getFzrOrderStatus(item.fzr_order_id);
+        for (
+            const item
+            of pendingItems
+        ) {
 
-                const status =
-                    String(fzrOrder.status || "")
-                        .toLowerCase();
+            const key =
+                String(
+                    item.fzr_order_id
+                );
 
-                let fulfillmentStatus = "Processing";
+            const state =
+                fzrPollState.get(key) || {
+                    failures: 0,
+                    nextPollAt: 0
+                };
 
-                if (
-                    status === "completed" ||
-                    status === "success" ||
-                    status === "successful"
-                ) {
-                    fulfillmentStatus = "Completed";
-                } else if (
-                    status === "failed" ||
-                    status === "cancelled" ||
-                    status === "canceled"
-                ) {
-                    fulfillmentStatus = "Failed";
-                }
+            /*
+             * Backoff still active.
+             */
+            if (
+                now <
+                state.nextPollAt
+            ) {
+                continue;
+            }
 
-                if (fulfillmentStatus !== "Processing") {
-                    db.prepare(`
-                        UPDATE order_items
-                        SET fulfillment_status = ?
-                        WHERE id = ?
-                    `).run(
-                        fulfillmentStatus,
-                        item.id
+            /*
+             * After repeated consecutive
+             * failures, pause automatic checks
+             * for 15 minutes.
+             *
+             * IMPORTANT:
+             * We DO NOT mark the item Failed,
+             * because FZR may actually have
+             * processed it successfully.
+             */
+            if (
+                state.failures >=
+                FZR_POLL_MAX_FAILURES
+            ) {
+
+                console.error(
+                    `FZR order ${key} needs review after ${state.failures} consecutive status-check failures.`
+                );
+
+                state.nextPollAt =
+                    now +
+                    FZR_POLL_MAX_DELAY;
+
+                /*
+                 * Allow another attempt after
+                 * the cooldown instead of
+                 * permanently abandoning it.
+                 */
+                state.failures =
+                    Math.max(
+                        3,
+                        state.failures - 1
                     );
 
-                    console.log(
-                        `FZR ${item.fzr_order_id}: ${status} → ${fulfillmentStatus}`
+                fzrPollState.set(
+                    key,
+                    state
+                );
+
+                continue;
+            }
+
+            try {
+
+                const fzrOrder =
+                    await getFzrOrderStatus(
+                        key
+                    );
+
+                const status =
+                    String(fzrOrder.status || "").toLowerCase();
+
+                const fulfillmentStatus =
+                    mapFzrStatusToFulfillmentStatus(status);
+
+                /*
+                 * Successful communication with
+                 * FZR resets failure backoff.
+                 */
+                state.failures = 0;
+
+                state.nextPollAt =
+                    now +
+                    FZR_POLL_BASE_DELAY;
+
+                fzrPollState.set(
+                    key,
+                    state
+                );
+
+                if (
+                    fulfillmentStatus !==
+                    "Processing"
+                ) {
+
+                    const result =
+                        db.prepare(`
+                            UPDATE order_items
+
+                            SET
+                                fulfillment_status = ?
+
+                            WHERE id = ?
+                              AND fulfillment_status =
+                                  'Processing'
+                        `).run(
+                            fulfillmentStatus,
+                            item.id
+                        );
+
+                    if (
+                        result.changes === 1
+                    ) {
+
+                        console.log(
+                            `FZR ${key}: ${status} → ${fulfillmentStatus}`
+                        );
+                    }
+
+                    /*
+                     * No reason to retain state
+                     * once the FZR order reaches
+                     * a final status.
+                     */
+                    fzrPollState.delete(
+                        key
                     );
                 }
 
             } catch (error) {
+
+                state.failures += 1;
+
+                /*
+                 * Exponential backoff:
+                 *
+                 * 30 sec
+                 * 60 sec
+                 * 2 min
+                 * 4 min
+                 * 8 min
+                 * capped at 15 min
+                 */
+                const delay =
+                    Math.min(
+                        FZR_POLL_BASE_DELAY *
+                        Math.pow(
+                            2,
+                            state.failures - 1
+                        ),
+
+                        FZR_POLL_MAX_DELAY
+                    );
+
+                state.nextPollAt =
+                    Date.now() +
+                    delay;
+
+                fzrPollState.set(
+                    key,
+                    state
+                );
+
                 console.error(
-                    `Could not check FZR order ${item.fzr_order_id}:`,
+                    `Could not check FZR order ${key} ` +
+                    `(attempt ${state.failures}, retry in ${Math.round(delay / 1000)}s):`,
                     error.message
                 );
             }
         }
 
     } catch (error) {
+
         console.error(
             "FZR pending-order checker error:",
             error.message
         );
+
+    } finally {
+
+        fzrCheckerRunning =
+            false;
     }
 }
 
@@ -1612,27 +2277,127 @@ app.post("/resend-verification", authLimiter, async (req, res) => {
    FAILURE ALERT
 ========================================================= */
 
-async function sendFulfillmentFailureAlert(orderItem, errorMessage) {
+function escapeHtmlForEmail(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+async function sendFulfillmentFailureAlert(orderItem, errorMessage, failureStatus = "Failed") {
     try {
+
+        if (
+            getSetting(
+                "notifications_enabled",
+                "1"
+            ) !== "1"
+        ) {
+            return;
+        }
+
+        if (
+            getSetting(
+                "notify_failed_fulfillment",
+                "1"
+            ) !== "1"
+        ) {
+            return;
+        }
+
+        const notificationEmail =
+            String(
+                getSetting(
+                    "notification_email",
+                    process.env.SMTP_USER || ""
+                )
+            ).trim();
+
+        if (!notificationEmail) {
+            logger.warn(
+                "Fulfillment alert skipped: no notification email configured."
+            );
+
+            return;
+        }
+
         await mailTransporter.sendMail({
-            from: `"Hiro Store Alerts" <${process.env.SMTP_USER}>`,
-            to: process.env.SMTP_USER,
-            subject: `⚠️ Delivery Failed — Order Item #${orderItem.id}`,
+            from:
+                `"Hiro Store Alerts" <${process.env.SMTP_USER}>`,
+
+            to:
+                notificationEmail,
+
+            subject:
+                `⚠️ Delivery Failed — Order Item #${orderItem.id}`,
+
             html: `
-                <p><strong>A diamond delivery just failed and needs attention.</strong></p>
+                <p>
+                    <strong>
+                        A diamond delivery just failed and needs attention.
+                    </strong>
+                </p>
+
                 <ul>
-                    <li>Order ID: ${orderItem.order_id || "N/A"}</li>
-                    <li>Item ID: ${orderItem.id}</li>
-                    <li>Offer ID: ${orderItem.offer_id}</li>
-                    <li>Player ID: ${orderItem.player_id}</li>
-                    <li>Server ID: ${orderItem.server_id}</li>
-                    <li>Error: ${errorMessage}</li>
+                    <li>
+                        Order ID:
+                        ${escapeHtmlForEmail(
+                orderItem.order_id || "N/A"
+            )}
+                    </li>
+
+                    <li>
+                        Item ID:
+                        ${escapeHtmlForEmail(
+                String(orderItem.id || "")
+            )}
+                    </li>
+
+                    <li>
+                        Offer ID:
+                        ${escapeHtmlForEmail(
+                orderItem.offer_id || ""
+            )}
+                    </li>
+
+                    <li>
+                        Player ID:
+                        ${escapeHtmlForEmail(
+                orderItem.player_id || ""
+            )}
+                    </li>
+
+                    <li>
+                        Server ID:
+                        ${escapeHtmlForEmail(
+                orderItem.server_id || ""
+            )}
+                    </li>
+
+                    <li>
+                        Error:
+                        ${escapeHtmlForEmail(
+                errorMessage || "Unknown error"
+            )}
+                    </li>
                 </ul>
-                <p>Check your FZR balance and use the Retry Delivery button in your admin dashboard.</p>
+
+                <p>
+                    ${failureStatus === "Review Required"
+                        ? "FZR did not return a trustworthy final response. Check FZR order history for this player before retrying. Do not submit another delivery until you confirm no supplier order was created."
+                        : "FZR returned a definite rejection. Review the error above, correct the cause, then retry if appropriate."}
+                </p>
             `
         });
+
     } catch (mailError) {
-        console.error("Failed to send fulfillment alert email:", mailError);
+
+        logger.error(
+            "Failed to send fulfillment alert email:",
+            mailError.message
+        );
     }
 }
 
@@ -2786,10 +3551,622 @@ app.get("/api/health", (req, res) => {
 ========================================================= */
 
 app.get("/api/config/paystack", (req, res) => {
-    const publicKey = process.env.PAYSTACK_PUBLIC_KEY;
-    if (!publicKey) return res.status(500).json({ success: false, message: "Paystack public key is not configured." });
-    return res.json({ success: true, publicKey });
+    return res.status(410).json({
+        success: false,
+        message: "This checkout client is outdated. Refresh Hiro Store before paying."
+    });
 });
+
+/*========================================================
+   STORE ANNOUNCEMENT
+========================================================= */
+app.get("/api/store/public-settings", (req, res) => {
+    try {
+        return res.json({
+            success: true,
+
+            announcement:
+                getSetting(
+                    "store_announcement",
+                    ""
+                ),
+
+            paymentsEnabled:
+                getSetting(
+                    "payments_enabled",
+                    "1"
+                ) === "1"
+        });
+
+    } catch (error) {
+        logger.error(
+            "Public store settings error:",
+            error.message
+        );
+
+        return res.status(500).json({
+            success: false,
+            announcement: "",
+            paymentsEnabled: true
+        });
+    }
+});
+
+/* =========================================================
+   CREATE PENDING ORDER BEFORE PAYSTACK
+========================================================= */
+
+app.post(
+    "/api/checkout/create",
+    paymentLimiter,
+    requireLogin,
+    async (req, res) => {
+
+        if (getSetting("maintenance_mode", "0") === "1") {
+            return res.status(503).json({
+                success: false,
+                message:
+                    "The store is temporarily closed for maintenance."
+            });
+        }
+
+        if (
+            getSetting(
+                "payments_enabled",
+                "1"
+            ) !== "1"
+        ) {
+            return res.status(503).json({
+                success: false,
+                message:
+                    "Payments are temporarily unavailable. Please try again later."
+            });
+        }
+
+        try {
+            const {
+                email: suppliedEmail,
+                phone: suppliedPhone,
+                items = []
+            } = req.body;
+
+            const rawItems =
+                Array.isArray(items)
+                    ? items
+                    : [];
+
+            if (!rawItems.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Your cart is empty."
+                });
+            }
+
+            /* ---------------------------------------------
+               CURRENT USER
+            --------------------------------------------- */
+
+            const user = db.prepare(`
+                SELECT
+                    id,
+                    email,
+                    phone
+                FROM users
+                WHERE id = ?
+            `).get(req.session.userId);
+
+            if (!user) {
+                return res.status(401).json({
+                    success: false,
+                    message: "User account not found."
+                });
+            }
+
+            const email = String(
+                suppliedEmail ||
+                user.email ||
+                ""
+            )
+                .trim()
+                .toLowerCase();
+
+            const phone = String(
+                suppliedPhone ||
+                user.phone ||
+                ""
+            ).trim();
+
+            if (!email) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Email is required."
+                });
+            }
+
+            /* ---------------------------------------------
+               LOAD PRODUCTS FROM DATABASE
+               NEVER TRUST PRICE FROM BROWSER
+            --------------------------------------------- */
+
+            const getProduct = db.prepare(`
+                SELECT
+                    category_id,
+                    offer_id,
+                    title,
+                    retail_price_ngn,
+                    supplier_price_usd,
+                    available
+                FROM products
+                WHERE offer_id = ?
+                  AND category_id = ?
+                LIMIT 1
+            `);
+
+            const getProductAnyCategory = db.prepare(`
+                SELECT
+                    category_id,
+                    offer_id,
+                    title,
+                    retail_price_ngn,
+                    supplier_price_usd,
+                    available
+                FROM products
+                WHERE offer_id = ?
+                LIMIT 1
+            `);
+
+            const cleanItems = rawItems
+                .map(item => {
+
+                    const offerId = String(
+                        item?.offerId || ""
+                    ).trim();
+
+                    const requestedCategoryId = String(
+                        item?.categoryId || ""
+                    ).trim();
+
+                    const playerId = String(
+                        item?.playerId || ""
+                    ).trim();
+
+                    const serverId = String(
+                        item?.serverId || ""
+                    ).trim();
+
+                    const qty =
+                        Number(item?.qty ?? 1);
+
+                    const maxQuantity =
+                        Number(
+                            getSetting(
+                                "max_quantity",
+                                "20"
+                            )
+                        );
+
+                    if (
+                        !Number.isInteger(qty) ||
+                        qty < 1 ||
+                        !Number.isInteger(maxQuantity) ||
+                        maxQuantity < 1 ||
+                        qty > maxQuantity
+                    ) {
+                        return null;
+                    }
+
+                    if (
+                        !offerId ||
+                        !playerId ||
+                        !serverId
+                    ) {
+                        return null;
+                    }
+
+                    const product =
+                        requestedCategoryId
+                            ? getProduct.get(
+                                offerId,
+                                requestedCategoryId
+                            )
+                            : getProductAnyCategory.get(
+                                offerId
+                            );
+
+                    if (
+                        !product ||
+                        !product.available
+                    ) {
+                        return null;
+                    }
+
+                    const price = Math.round(
+                        Number(
+                            product.retail_price_ngn ||
+                            0
+                        )
+                    );
+
+                    if (price <= 0) {
+                        return null;
+                    }
+
+                    return {
+                        offerId:
+                            product.offer_id,
+
+                        categoryId:
+                            product.category_id,
+
+                        title:
+                            product.title,
+
+                        price,
+
+                        qty,
+
+                        playerId,
+
+                        serverId,
+
+                        supplierPriceUsd:
+                            Number(
+                                product.supplier_price_usd ||
+                                0
+                            )
+                    };
+                })
+                .filter(Boolean);
+
+            if (
+                cleanItems.length !==
+                rawItems.length
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "One or more cart items are invalid or unavailable."
+                });
+            }
+
+            /* ---------------------------------------------
+               SERVER-SIDE TOTAL
+            --------------------------------------------- */
+
+            const orderTotal =
+                cleanItems.reduce(
+                    (sum, item) =>
+                        sum +
+                        item.price *
+                        item.qty,
+                    0
+                );
+
+            if (orderTotal <= 0) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Invalid order total."
+                });
+            }
+
+            /* ---------------------------------------------
+               IDS / REFERENCE
+            --------------------------------------------- */
+
+            const datePart =
+                new Date()
+                    .toISOString()
+                    .slice(0, 10)
+                    .replace(/-/g, "");
+
+            const orderRandom =
+                crypto
+                    .randomBytes(4)
+                    .toString("hex")
+                    .toUpperCase();
+
+            const referenceRandom =
+                crypto
+                    .randomBytes(8)
+                    .toString("hex")
+                    .toUpperCase();
+
+            const orderId =
+                `HIRO-${datePart}-${orderRandom}`;
+
+            const reference =
+                `HIRO-PAY-${Date.now()}-${referenceRandom}`;
+
+            const createdAt =
+                new Date().toISOString();
+
+            /* ---------------------------------------------
+               SAVE ORDER + ITEMS ATOMICALLY
+            --------------------------------------------- */
+
+            const createOrder =
+                db.transaction(() => {
+
+                    db.prepare(`
+                        INSERT INTO orders (
+                            order_id,
+                            reference,
+                            user_id,
+                            email,
+                            phone,
+                            amount,
+                            order_total,
+                            amount_charged,
+                            currency,
+                            status,
+                            paid_at,
+                            created_at
+                        )
+                        VALUES (
+                            @order_id,
+                            @reference,
+                            @user_id,
+                            @email,
+                            @phone,
+                            @amount,
+                            @order_total,
+                            0,
+                            'NGN',
+                            'Pending',
+                            NULL,
+                            @created_at
+                        )
+                    `).run({
+                        order_id:
+                            orderId,
+
+                        reference,
+
+                        user_id:
+                            user.id,
+
+                        email,
+
+                        phone,
+
+                        // Kept in kobo to match your
+                        // existing orders.amount usage.
+                        amount:
+                            orderTotal * 100,
+
+                        order_total:
+                            orderTotal,
+
+                        created_at:
+                            createdAt
+                    });
+
+                    const insertItem =
+                        db.prepare(`
+                            INSERT INTO order_items (
+                                order_id,
+                                offer_id,
+                                category_id,
+                                title,
+                                price,
+                                quantity,
+                                supplier_price_usd,
+                                supplier_cost_ngn,
+                                player_id,
+                                server_id,
+                                player_name,
+                                player_region
+                            )
+                            VALUES (
+                                @order_id,
+                                @offer_id,
+                                @category_id,
+                                @title,
+                                @price,
+                                1,
+                                @supplier_price_usd,
+                                @supplier_cost_ngn,
+                                @player_id,
+                                @server_id,
+                                '',
+                                ''
+                            )
+                        `);
+
+                    for (
+                        const item
+                        of cleanItems
+                    ) {
+
+                        const supplierCostNgn =
+                            Math.round(
+                                item.supplierPriceUsd *
+                                Number(
+                                    getSetting(
+                                        "usd_ngn_rate",
+                                        FZR_EXCHANGE_RATE
+                                    )
+                                )
+                            );
+
+                        /*
+                         * One DB row per unit.
+                         * This preserves your current
+                         * qty 2+ fulfillment protection.
+                         */
+                        for (
+                            let unit = 0;
+                            unit < item.qty;
+                            unit++
+                        ) {
+
+                            insertItem.run({
+                                order_id:
+                                    orderId,
+
+                                offer_id:
+                                    item.offerId,
+
+                                category_id:
+                                    item.categoryId,
+
+                                title:
+                                    item.title,
+
+                                price:
+                                    item.price,
+
+                                supplier_price_usd:
+                                    item.supplierPriceUsd,
+
+                                supplier_cost_ngn:
+                                    supplierCostNgn,
+
+                                player_id:
+                                    item.playerId,
+
+                                server_id:
+                                    item.serverId
+                            });
+                        }
+                    }
+                });
+
+            createOrder();
+
+            /* ---------------------------------------------
+               INITIALIZE PAYSTACK ON THE SERVER
+
+               This is the critical protection against stale
+               browser code creating standalone T... references.
+               Paystack receives the exact HIRO-PAY reference
+               that already exists in our database.
+            --------------------------------------------- */
+
+            const paystackInitializeResponse =
+                await fetch(
+                    "https://api.paystack.co/transaction/initialize",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            Authorization:
+                                `Bearer ${PAYSTACK_SECRET_KEY}`,
+
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            email,
+
+                            amount:
+                                String(orderTotal * 100),
+
+                            currency:
+                                "NGN",
+
+                            reference,
+
+                            metadata:
+                                JSON.stringify({
+                                    order_id:
+                                        orderId,
+
+                                    phone,
+
+                                    player_id:
+                                        cleanItems[0]?.playerId ||
+                                        "",
+
+                                    server_id:
+                                        cleanItems[0]?.serverId ||
+                                        ""
+                                })
+                        })
+                    }
+                );
+
+            const paystackInitializeData =
+                await paystackInitializeResponse.json();
+
+            if (
+                !paystackInitializeResponse.ok ||
+                !paystackInitializeData.status ||
+                !paystackInitializeData.data?.access_code
+            ) {
+                console.error(
+                    "PAYSTACK INITIALIZE ERROR:",
+                    paystackInitializeData
+                );
+
+                return res.status(502).json({
+                    success: false,
+                    message:
+                        "Unable to start payment right now. Please try again."
+                });
+            }
+
+            /*
+             * Paystack should echo the reference we supplied.
+             * Refuse to continue if it ever differs.
+             */
+            if (
+                String(
+                    paystackInitializeData.data.reference ||
+                    ""
+                ) !== reference
+            ) {
+                console.error(
+                    "PAYSTACK REFERENCE MISMATCH:",
+                    {
+                        expected: reference,
+                        received:
+                            paystackInitializeData.data.reference
+                    }
+                );
+
+                return res.status(502).json({
+                    success: false,
+                    message:
+                        "Payment initialization failed safely. Please try again."
+                });
+            }
+
+            return res.status(201).json({
+                success: true,
+
+                accessCode:
+                    paystackInitializeData.data.access_code,
+
+                order: {
+                    orderId,
+                    reference,
+                    orderTotal,
+                    amountKobo:
+                        orderTotal * 100,
+
+                    currency:
+                        "NGN"
+                }
+            });
+
+        } catch (error) {
+
+            console.error(
+                "CREATE PENDING ORDER ERROR:",
+                error
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "Unable to prepare checkout."
+            });
+        }
+    }
+);
 
 /* =========================================================
    STORE STATUS
@@ -2818,7 +4195,6 @@ app.get("/api/products", (req, res) => {
                 category_id AS categoryId,
                 offer_id AS offerId,
                 title,
-                supplier_price_usd AS supplierPriceUsd,
                 retail_price_usd AS retailPriceUsd,
                 retail_price_ngn AS retailPriceNgn,
                 available,
@@ -2847,560 +4223,389 @@ app.post("/verify-payment", paymentLimiter, async (req, res) => {
     if (getSetting("maintenance_mode", "0") === "1") {
         return res.status(503).json({
             success: false,
-            message: "The store is temporarily closed for maintenance. Please check back soon."
+            message:
+                "The store is temporarily closed for maintenance. Please check back soon."
         });
     }
-    try {
-        const { reference, items = [] } = req.body;
 
-        const cleanReference = String(reference || "").trim();
+    try {
+        const {
+            reference
+        } = req.body;
+
+        const cleanReference =
+            String(reference || "")
+                .trim();
 
         if (!cleanReference) {
             return res.status(400).json({
                 success: false,
-                message: "No payment reference supplied."
-            });
-        }
-
-
-
-        /* ---------------------------------------------------------
-           VERIFY DIRECTLY WITH PAYSTACK
-        --------------------------------------------------------- */
-
-        const response = await axios.get(
-            `https://api.paystack.co/transaction/verify/${encodeURIComponent(cleanReference)}`,
-            {
-                headers: {
-                    Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-                    "Content-Type": "application/json"
-                },
-                timeout: 15000
-            }
-        );
-
-        const payment = response.data?.data;
-
-        if (!payment) {
-            console.error("Paystack returned no transaction data.");
-
-            return res.status(502).json({
-                success: false,
-                message: "Paystack did not return transaction information."
-            });
-        }
-
-        // Paystack's verify endpoint should return the same reference that
-        // was requested. Never create an order for a different transaction.
-        if (String(payment.reference || "").trim() !== cleanReference) {
-            return res.status(400).json({
-                success: false,
-                message: "Payment reference mismatch."
-            });
-        }
-        console.log("Paystack verification:", payment.reference, payment.status);
-
-        /* ---------------------------------------------------------
-           PAYMENT MUST ACTUALLY BE SUCCESSFUL
-        --------------------------------------------------------- */
-
-        if (payment.status !== "success") {
-            console.log("Payment verification failed:", payment.status);
-
-            return res.status(400).json({
-                success: false,
-                message: "Payment was not successful.",
-                payment: {
-                    reference: payment.reference,
-                    status: payment.status,
-                    amount: payment.amount,
-                    currency: payment.currency
-                }
+                message:
+                    "No payment reference supplied."
             });
         }
 
         /* ---------------------------------------------------------
-           CHECK IF THIS PAYMENT WAS ALREADY SAVED
+           FIND THE PRE-CREATED ORDER
         --------------------------------------------------------- */
 
-        const existingOrder = db.prepare(`
+        const order = db.prepare(`
             SELECT *
             FROM orders
             WHERE reference = ?
         `).get(cleanReference);
 
-        if (existingOrder) {
-            console.log(
-                "Payment already exists in database:",
-                existingOrder.order_id
+        if (!order) {
+            console.error(
+                "VERIFY PAYMENT: Order not found:",
+                cleanReference
             );
 
-            const existingItems = db.prepare(`
-                 SELECT
-                    id,
-                    title,
-                    price,
-                    quantity,
-                    player_id,
-                    server_id,
-                    player_name,
-                    player_region,
-                    supplier_price_usd
-                FROM order_items
-                WHERE order_id = ?
-                ORDER BY id ASC
-            `).all(existingOrder.order_id);
-
-            return res.json({
-                success: true,
-                alreadyVerified: true,
-                message: "Payment already verified.",
-                payment: {
-                    reference: payment.reference,
-                    status: payment.status,
-                    amount: payment.amount,
-                    currency: payment.currency,
-                    paidAt: payment.paid_at
-                },
-                order: {
-                    orderId: existingOrder.order_id,
-                    reference: existingOrder.reference,
-                    status: existingOrder.status,
-                    orderTotal: Number(existingOrder.order_total || 0),
-                    amountCharged: Number(
-                        existingOrder.amount_charged ||
-                        existingOrder.amount ||
-                        0
-                    ) / 100,
-                    items: existingItems.map(item => ({
-                        id: item.id,
-                        title: item.title,
-                        price: Number(item.price || 0),
-                        qty: Number(item.quantity || 1),
-
-                        playerId: item.player_id || "",
-                        serverId: item.server_id || "",
-
-                        playerName: item.player_name || "",
-                        playerRegion: item.player_region || "",
-
-                        supplierPriceUsd: Number(
-                            item.supplier_price_usd || 0
-                        )
-                    }))
-                }
+            return res.status(404).json({
+                success: false,
+                message:
+                    "Order could not be found."
             });
         }
 
         /* ---------------------------------------------------------
-           USER
+           VERIFY DIRECTLY WITH PAYSTACK
         --------------------------------------------------------- */
 
-        const userId = req.session?.userId || null;
+        const response =
+            await axios.get(
+                `https://api.paystack.co/transaction/verify/${encodeURIComponent(cleanReference)}`,
+                {
+                    headers: {
+                        Authorization:
+                            `Bearer ${PAYSTACK_SECRET_KEY}`,
 
-        /*
-         * We intentionally do NOT requireLogin here.
-         *
-         * If the customer is logged in, attach the order to their
-         * account. If the session is unavailable after Paystack,
-         * the payment can still be verified and saved.
-         */
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    timeout:
+                        15000
+                }
+            );
+
+        const payment =
+            response.data?.data;
+
+        if (!payment) {
+            return res.status(502).json({
+                success: false,
+                message:
+                    "Paystack did not return transaction information."
+            });
+        }
 
         /* ---------------------------------------------------------
-           PAYMENT VALUES
+           REFERENCE MUST MATCH
         --------------------------------------------------------- */
 
-        const amountChargedKobo = Number(payment.amount || 0);
-        const amountChargedNgn = amountChargedKobo / 100;
+        if (
+            String(
+                payment.reference || ""
+            ).trim() !== cleanReference
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Payment reference mismatch."
+            });
+        }
 
-        const currency = String(payment.currency || "NGN");
+        /* ---------------------------------------------------------
+           PAYMENT MUST BE SUCCESSFUL
+        --------------------------------------------------------- */
 
-        const email = String(
-            payment.customer?.email || ""
-        ).trim().toLowerCase();
+        if (payment.status !== "success") {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Payment was not successful.",
 
-        const phone = String(
-            payment.metadata?.phone ||
-            payment.customer?.phone ||
-            ""
-        ).trim();
+                payment: {
+                    reference:
+                        payment.reference,
+
+                    status:
+                        payment.status,
+
+                    amount:
+                        payment.amount,
+
+                    currency:
+                        payment.currency
+                }
+            });
+        }
+
+        if (order.status === "Refunded") {
+            return res.status(409).json({
+                success: false,
+                message:
+                    "This order has already been marked Refunded and cannot be reactivated by payment verification."
+            });
+        }
+
+        /* ---------------------------------------------------------
+           CHECK CURRENCY
+        --------------------------------------------------------- */
+
+        const paymentCurrency =
+            String(
+                payment.currency ||
+                ""
+            ).toUpperCase();
+
+        const orderCurrency =
+            String(
+                order.currency ||
+                "NGN"
+            ).toUpperCase();
+
+        if (
+            paymentCurrency !==
+            orderCurrency
+        ) {
+            console.error(
+                "VERIFY PAYMENT: Currency mismatch",
+                {
+                    reference:
+                        cleanReference,
+
+                    expected:
+                        orderCurrency,
+
+                    received:
+                        paymentCurrency
+                }
+            );
+
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Payment currency does not match order."
+            });
+        }
+
+        /* ---------------------------------------------------------
+           CHECK AMOUNT
+        --------------------------------------------------------- */
+
+        const amountChargedKobo =
+            Number(payment.amount);
+
+        const expectedAmountKobo =
+            Math.round(
+                Number(
+                    order.order_total
+                ) * 100
+            );
+
+        if (
+            !Number.isFinite(
+                amountChargedKobo
+            ) ||
+            !Number.isFinite(
+                expectedAmountKobo
+            )
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Invalid payment amount."
+            });
+        }
+
+        if (
+            amountChargedKobo !==
+            expectedAmountKobo
+        ) {
+            console.error(
+                "VERIFY PAYMENT: Amount mismatch",
+                {
+                    reference:
+                        cleanReference,
+
+                    expected:
+                        expectedAmountKobo,
+
+                    received:
+                        amountChargedKobo
+                }
+            );
+
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Payment amount does not match order total."
+            });
+        }
+
+        /* ---------------------------------------------------------
+           MARK PAID IF NOT ALREADY PAID
+        --------------------------------------------------------- */
 
         const paidAt =
             payment.paid_at ||
             payment.transaction_date ||
             new Date().toISOString();
 
-        /* ---------------------------------------------------------
-           CLEAN ITEMS
-        --------------------------------------------------------- */
-        /* ---------------------------------------------------------
-           BUILD ORDER ITEMS FROM DATABASE PRODUCTS
-           Never trust title/price from the browser.
-        --------------------------------------------------------- */
+        const paymentUpdate =
+            db.prepare(`
+                UPDATE orders
+                SET
+                    status = 'Paid',
+                    amount_charged = ?,
+                    paid_at = ?
+                WHERE reference = ?
+                  AND status NOT IN ('Paid', 'Refunded')
+            `).run(
+                amountChargedKobo,
+                paidAt,
+                cleanReference
+            );
 
-        const rawItems = Array.isArray(items) ? items : [];
-
-        const getProduct = db.prepare(`
-            SELECT
-                id,
-                category_id,
-                offer_id,
-                title,
-                retail_price_ngn,
-                supplier_price_usd,
-                available
-            FROM products
-            WHERE offer_id = ?
-              AND category_id = ?
-            LIMIT 1
-`);
-
-        const getProductAnyCategory = db.prepare(`
-            SELECT
-                id,
-                category_id,
-                offer_id,
-                title,
-                retail_price_ngn,
-                supplier_price_usd,
-                available
-            FROM products
-            WHERE offer_id = ?
-            LIMIT 1
-`);
-
-        const cleanItems = rawItems
-            .map(item => {
-                const offerId = String(
-                    item?.offerId || ""
-                ).trim();
-
-                const categoryId = String(
-                    item?.categoryId || ""
-                ).trim();
-
-                const playerId = String(
-                    item?.playerId || ""
-                ).trim();
-
-                const serverId = String(
-                    item?.serverId || ""
-                ).trim();
-
-                const qty = Math.max(
-                    1,
-                    Math.floor(
-                        Number(item?.qty || 1)
-                    )
-                );
-
-                if (!offerId) {
-                    console.error(
-                        "Missing offerId:",
-                        item
-                    );
-
-                    return null;
-                }
-
-                const product = categoryId
-                    ? getProduct.get(offerId, categoryId)
-                    : getProductAnyCategory.get(offerId);
-
-                if (!product) {
-                    console.error(
-                        "Product not found for offerId:",
-                        offerId
-                    );
-
-                    return null;
-                }
-
-                if (!product.available) {
-                    console.error(
-                        "Product unavailable:",
-                        offerId
-                    );
-
-                    return null;
-                }
-                return {
-                    offerId,
-
-                    categoryId,
-
-                    title: String(
-                        product.title || "Unknown Package"
-                    ).trim(),
-
-                    price: Math.round(
-                        Number(
-                            product.retail_price_ngn || 0
-                        )
-                    ),
-
-                    qty,
-
-                    playerId,
-
-                    serverId,
-
-                    playerName: "",
-
-                    playerRegion: "",
-
-                    supplierPriceUsd: Number(
-                        product.supplier_price_usd || 0
-                    ),
-
-                    supplierCostNgn: Math.round(
-                        Number(product.supplier_price_usd || 0) *
-                        Number(getSetting("usd_ngn_rate", FZR_EXCHANGE_RATE))
-                    )
-                };
-            })
-            .filter(Boolean);
-
-        /*------------------------
-          SAFETY CHECK
-         ------------------------*/
-
-        if (!cleanItems.length) {
-            return res.status(400).json({
-                success: false,
-                message: "No valid products were supplied."
-            });
-        }
-
-        const invalidProduct = cleanItems.find(
-            item =>
-                !item.title ||
-                item.price <= 0 ||
-                !item.playerId ||
-                !item.serverId
-        );
-
-        if (invalidProduct) {
-            return res.status(400).json({
-                success: false,
-                message: "One or more order items are invalid."
-            });
-        }
-
-        /* ---------------------------------------------------------
-           CALCULATE ORDER TOTAL
-           Prices in your products table are NGN.
-        --------------------------------------------------------- */
-
-        const orderTotal = cleanItems.reduce(
-            (sum, item) => {
-                return sum + (
-                    Number(item.price || 0) *
-                    Number(item.qty || 1)
-                );
-            },
-            0
-        );
-
-        console.log("ORDER CALCULATION:", {
-            orderTotalNgn: orderTotal,
-            paystackAmountNgn: amountChargedNgn,
-            paystackAmountKobo: amountChargedKobo
-        });
-
-        /* ---------------------------------------------------------
-           OPTIONAL AMOUNT CHECK
-           
-           Only perform this if items were supplied.
-        --------------------------------------------------------- */
+        finance.recordFee(cleanReference, payment, "verify");
 
         if (
-            cleanItems.length > 0 &&
-            orderTotal > 0 &&
-            amountChargedKobo !== orderTotal * 100
+            paymentUpdate.changes === 1
         ) {
-            console.error("PAYMENT AMOUNT MISMATCH:", {
-                reference: cleanReference,
-                expectedNgn: orderTotal,
-                expectedKobo: orderTotal * 100,
-                paystackNgn: amountChargedNgn,
-                paystackKobo: amountChargedKobo
-            });
-
-            return res.status(400).json({
-                success: false,
-                message: "Payment amount does not match the order total.",
-                payment: {
-                    reference: payment.reference,
-                    status: payment.status,
-                    amount: amountChargedNgn,
-                    currency
-                },
-                expectedAmount: orderTotal
-            });
+            console.log(
+                `Order ${order.order_id} marked Paid by verification`
+            );
+        } else {
+            console.log(
+                `Order ${order.order_id} was already marked Paid`
+            );
         }
 
         /* ---------------------------------------------------------
-           CREATE ORDER ID
-        --------------------------------------------------------- */
-        const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-        const randomPart = crypto.randomBytes(3).toString("hex").toUpperCase();
-        const orderId = `HIRO-${datePart}-${randomPart}`;
-        const createdAt = new Date().toISOString();
+           GET PENDING ITEMS
 
-        /* ---------------------------------------------------------
-           SAVE ORDER + ITEMS ATOMICALLY
+           Even if another request already marked the order Paid,
+           we still check for Pending items.
+
+           Each item is claimed atomically below, so webhook +
+           browser verification cannot fulfill the same item twice.
         --------------------------------------------------------- */
 
-        const saveOrder = db.transaction(() => {
-
+        const pendingOrderItems =
             db.prepare(`
-                INSERT INTO orders (
-                    order_id,
-                    reference,
-                    user_id,
-                    email,
-                    phone,
-                    amount,
-                    order_total,
-                    amount_charged,
-                    currency,
-                    status,
-                    paid_at,
-                    created_at
-                )
-                VALUES (
-                    @order_id,
-                    @reference,
-                    @user_id,
-                    @email,
-                    @phone,
-                    @amount,
-                    @order_total,
-                    @amount_charged,
-                    @currency,
-                    @status,
-                    @paid_at,
-                    @created_at
-                )
-            `).run({
-                order_id: orderId,
-                reference: cleanReference,
-                user_id: userId,
-                email,
-                phone,
-                amount: amountChargedKobo,
-                order_total: orderTotal,
-                amount_charged: amountChargedKobo,
-                currency,
-                status: "Pending",
-                paid_at: null,
-                created_at: createdAt
-            });
-
-            const insertItem = db.prepare(`
-               INSERT INTO order_items (
-                    order_id,
+                SELECT
+                    id,
                     offer_id,
                     category_id,
-                    title,
-                    price,
-                    quantity,
-                    supplier_price_usd,
-                    supplier_cost_ngn,
                     player_id,
                     server_id,
-                    player_name,
-                    player_region
-                )
-                VALUES (
-                    @order_id,
-                    @offer_id,
-                    @category_id,
-                    @title,
-                    @price,
-                    @quantity,
-                    @supplier_price_usd,
-                    @supplier_cost_ngn,
-                    @player_id,
-                    @server_id,
-                    @player_name,
-                    @player_region
-                )
-            `);
-
-
-
-            for (const item of cleanItems) {
-                const supplierCostNgn = Math.round(
-                    Number(item.supplierPriceUsd || 0) *
-                    Number(getSetting("usd_ngn_rate", FZR_EXCHANGE_RATE))
-                );
-
-                // Insert one row per unit so each can be fulfilled
-                // individually by FZR (qty 2+ needs 2 separate calls).
-                for (let unit = 0; unit < item.qty; unit++) {
-                    insertItem.run({
-                        order_id: orderId,
-                        offer_id: item.offerId,
-                        category_id: item.categoryId,
-                        title: item.title,
-                        price: item.price,
-                        quantity: 1,
-                        supplier_price_usd: item.supplierPriceUsd,
-                        supplier_cost_ngn: supplierCostNgn,
-                        player_id: item.playerId,
-                        server_id: item.serverId,
-                        player_name: item.playerName,
-                        player_region: item.playerRegion
-                    });
-                }
-            }
-        });
-
-        saveOrder();
-
-        /* ---------------------------------------------------------
-           SEND PAID PRODUCTS TO FZR
-        --------------------------------------------------------- */
+                    fulfillment_status,
+                    fzr_order_id
+                FROM order_items
+                WHERE order_id = ?
+                  AND fulfillment_status = 'Pending'
+                ORDER BY id ASC
+            `).all(
+                order.order_id
+            );
 
         const fulfillmentResults = [];
 
-        // Get all pending order items for this order (one per unit)
-        const pendingOrderItems = db.prepare(`
-            SELECT
-                id,
-                offer_id,
-                category_id,
-                player_id,
-                server_id,
-                fulfillment_status,
-                fzr_order_id
-            FROM order_items
-            WHERE order_id = ?
-              AND fulfillment_status = 'Pending'
-            ORDER BY id ASC
-        `).all(orderId);
+        const autoFulfillmentEnabled =
+            getSetting(
+                "auto_fulfillment_enabled",
+                "1"
+            ) === "1";
 
-        for (const orderItem of pendingOrderItems) {
+        if (!autoFulfillmentEnabled) {
+            logger.info(
+                `Auto fulfillment disabled; order ${order.order_id} verified and left Pending for manual fulfillment.`
+            );
+
+            const savedItems = db.prepare(`
+        SELECT
+            id,
+            offer_id,
+            category_id,
+            title,
+            price,
+            quantity,
+            player_id,
+            server_id,
+            fulfillment_status,
+            fzr_order_id
+        FROM order_items
+        WHERE order_id = ?
+        ORDER BY id ASC
+    `).all(
+                order.order_id
+            );
+
+            return res.json({
+                success: true,
+
+                message:
+                    "Payment verified. Automatic fulfillment is disabled.",
+
+                order: {
+                    orderId:
+                        order.order_id,
+
+                    reference:
+                        cleanReference,
+
+                    status:
+                        "Paid",
+
+                    orderTotal:
+                        Number(
+                            order.order_total ||
+                            0
+                        ),
+
+                    amountCharged:
+                        amountChargedKobo /
+                        100,
+
+                    currency:
+                        orderCurrency,
+
+                    items:
+                        savedItems
+                }
+            });
+        }
+
+        /* ---------------------------------------------------------
+           FZR FULFILLMENT
+        --------------------------------------------------------- */
+
+        for (
+            const orderItem
+            of pendingOrderItems
+        ) {
 
             /*
-             * Claim this item BEFORE contacting FZR.
+             * Only one request can change
+             * Pending -> Processing.
              */
-            const claim = db.prepare(`
-        UPDATE order_items
-        SET fulfillment_status = 'Processing'
-        WHERE id = ?
-          AND fulfillment_status = 'Pending'
-    `).run(orderItem.id);
+            const claim =
+                db.prepare(`
+                    UPDATE order_items
+                    SET fulfillment_status = 'Processing'
+                    WHERE id = ?
+                      AND fulfillment_status = 'Pending'
+                `).run(
+                    orderItem.id
+                );
 
-            /*
-             * If another request claimed it first,
-             * do not call FZR.
-             */
-            if (claim.changes !== 1) {
+            if (
+                claim.changes !== 1
+            ) {
                 console.log(
-                    "FZR fulfillment already claimed by another request:",
+                    "FZR item already claimed:",
                     orderItem.id
                 );
 
@@ -3408,66 +4613,61 @@ app.post("/verify-payment", paymentLimiter, async (req, res) => {
             }
 
             try {
-                console.log("========================================");
-                console.log("FZR FULFILLMENT START");
-                console.log("Order:", orderId);
-                console.log("Item ID:", orderItem.id);
-                console.log("Offer:", orderItem.offer_id);
-                console.log("Player:", orderItem.player_id);
-                console.log("Server:", orderItem.server_id);
-                console.log("========================================");
+                const fzrResult =
+                    await createFzrTopup({
+                        offerId:
+                            orderItem.offer_id,
 
-                const fzrResult = await createFzrTopup({
-                    offerId: orderItem.offer_id,
-                    categoryId: orderItem.category_id,
-                    playerId: orderItem.player_id,
-                    serverId: orderItem.server_id
-                });
+                        categoryId:
+                            orderItem.category_id,
+
+                        playerId:
+                            orderItem.player_id,
+
+                        serverId:
+                            orderItem.server_id
+                    });
 
                 const fzrOrderId =
-                    fzrResult.order?.id || null;
+                    fzrResult?.order?.id ||
+                    null;
 
                 const fzrStatus =
-                    fzrResult.order?.status || "created";
+                    fzrResult?.order?.status ||
+                    "created";
 
-                const normalizedFzrStatus =
-                    String(fzrStatus || "").toLowerCase();
-
-                let fulfillmentStatus = "Processing";
-
-                if (
-                    normalizedFzrStatus === "completed" ||
-                    normalizedFzrStatus === "success" ||
-                    normalizedFzrStatus === "successful"
-                ) {
-                    fulfillmentStatus = "Completed";
-                } else if (
-                    normalizedFzrStatus === "failed" ||
-                    normalizedFzrStatus === "cancelled" ||
-                    normalizedFzrStatus === "canceled"
-                ) {
-                    fulfillmentStatus = "Failed";
-                }
+                const fulfillmentStatus =
+                    mapFzrStatusToFulfillmentStatus(fzrStatus);
 
                 db.prepare(`
-            UPDATE order_items
-            SET fulfillment_status = ?,
-                fzr_order_id = ?
-            WHERE id = ?
-        `).run(
+                    UPDATE order_items
+                    SET
+                        fulfillment_status = ?,
+                        fzr_order_id = ?
+                    WHERE id = ?
+                `).run(
                     fulfillmentStatus,
                     fzrOrderId,
                     orderItem.id
                 );
 
                 fulfillmentResults.push({
-                    offerId: orderItem.offer_id,
-                    categoryId: orderItem.category_id,
-                    playerId: orderItem.player_id,
-                    serverId: orderItem.server_id,
-                    success: true,
+                    itemId:
+                        orderItem.id,
+
+                    offerId:
+                        orderItem.offer_id,
+
+                    categoryId:
+                        orderItem.category_id,
+
+                    success:
+                        true,
+
                     fzrOrderId,
-                    status: fzrStatus
+
+                    status:
+                        fzrStatus
                 });
 
             } catch (fzrError) {
@@ -3477,55 +4677,61 @@ app.post("/verify-payment", paymentLimiter, async (req, res) => {
                     fzrError.message
                 );
 
-                db.prepare(`
-                        UPDATE order_items
-                        SET fulfillment_status = 'Failed'
-                        WHERE id = ?
-                    `).run(orderItem.id);
+                const failure = fzrFailureDetails(fzrError);
 
-                sendFulfillmentFailureAlert(orderItem, fzrError.message);
+                db.prepare(`
+                    UPDATE order_items
+                    SET fulfillment_status = ?, fulfillment_error = ?
+                    WHERE id = ?
+                `).run(failure.status, failure.message, orderItem.id);
+
+                sendFulfillmentFailureAlert(orderItem, failure.message, failure.status);
 
                 fulfillmentResults.push({
-                    offerId: orderItem.offer_id,
-                    categoryId: orderItem.category_id,
-                    playerId: orderItem.player_id,
-                    serverId: orderItem.server_id,
-                    success: false,
-                    error: fzrError.message
+                    itemId:
+                        orderItem.id,
+
+                    offerId:
+                        orderItem.offer_id,
+
+                    categoryId:
+                        orderItem.category_id,
+
+                    success:
+                        false,
+
+                    error:
+                        fzrError.message
                 });
             }
         }
 
-        // Verification is the customer-facing source of truth. Mark the
-        // order paid here as well as in the webhook handler. The webhook can
-        // arrive before the order is inserted, so relying on it alone can
-        // leave a real payment stuck as Pending.
-        db.prepare(`
-            UPDATE orders
-            SET status = 'Paid',
-                amount_charged = ?,
-                paid_at = ?
-            WHERE order_id = ?
-              AND status != 'Paid'
-        `).run(
-            amountChargedKobo,
-            paidAt,
-            orderId
-        );
+        /* ---------------------------------------------------------
+           LOAD ORDER ITEMS FOR RESPONSE
+        --------------------------------------------------------- */
 
-        console.log("FZR fulfillment results:");
-        console.log(
-            JSON.stringify(fulfillmentResults, null, 2)
-        );
-
-        console.log("========================================");
-        console.log("PAYMENT VERIFIED SUCCESSFULLY");
-        console.log("Order ID:", orderId);
-        console.log("Reference:", cleanReference);
-        console.log("Amount:", `₦${amountChargedNgn.toLocaleString()}`);
-        console.log("Customer:", email);
-        console.log("User ID:", userId);
-        console.log("========================================");
+        const savedItems =
+            db.prepare(`
+                SELECT
+                    id,
+                    offer_id,
+                    category_id,
+                    title,
+                    price,
+                    quantity,
+                    player_id,
+                    server_id,
+                    player_name,
+                    player_region,
+                    supplier_price_usd,
+                    fulfillment_status,
+                    fzr_order_id
+                FROM order_items
+                WHERE order_id = ?
+                ORDER BY id ASC
+            `).all(
+                order.order_id
+            );
 
         /* ---------------------------------------------------------
            RESPONSE
@@ -3533,59 +4739,128 @@ app.post("/verify-payment", paymentLimiter, async (req, res) => {
 
         return res.json({
             success: true,
-            alreadyVerified: false,
-            message: "Payment verified successfully.",
+
+            alreadyVerified:
+                paymentUpdate.changes === 0,
+
+            message:
+                "Payment verified successfully.",
 
             payment: {
-                reference: payment.reference,
-                status: payment.status,
-                amount: amountChargedNgn,
-                amountKobo: amountChargedKobo,
-                currency,
+                reference:
+                    payment.reference,
+
+                status:
+                    payment.status,
+
+                amount:
+                    amountChargedKobo /
+                    100,
+
+                amountKobo:
+                    amountChargedKobo,
+
+                currency:
+                    paymentCurrency,
+
                 paidAt
             },
 
             order: {
-                orderId,
-                reference: cleanReference,
-                status: "Paid",
-                orderTotal,
-                amountCharged: amountChargedNgn,
-                currency,
+                orderId:
+                    order.order_id,
 
-                items: cleanItems,
+                reference:
+                    cleanReference,
 
-                fulfillment: fulfillmentResults
+                status:
+                    "Paid",
+
+                orderTotal:
+                    Number(
+                        order.order_total ||
+                        0
+                    ),
+
+                amountCharged:
+                    amountChargedKobo /
+                    100,
+
+                currency:
+                    orderCurrency,
+
+                items:
+                    savedItems.map(
+                        item => ({
+                            id:
+                                item.id,
+
+                            offerId:
+                                item.offer_id,
+
+                            categoryId:
+                                item.category_id,
+
+                            title:
+                                item.title,
+
+                            price:
+                                Number(
+                                    item.price ||
+                                    0
+                                ),
+
+                            qty:
+                                Number(
+                                    item.quantity ||
+                                    1
+                                ),
+
+                            playerId:
+                                item.player_id ||
+                                "",
+
+                            serverId:
+                                item.server_id ||
+                                "",
+
+                            fulfillmentStatus:
+                                item.fulfillment_status,
+
+                            fzrOrderId:
+                                item.fzr_order_id ||
+                                null
+                        })
+                    ),
+
+                fulfillment:
+                    fulfillmentResults
             }
         });
 
     } catch (error) {
 
-        console.error("========================================");
-        console.error("PAYSTACK VERIFICATION ERROR");
-        console.error("Message:", error.message);
+        console.error(
+            "PAYSTACK VERIFICATION ERROR:",
+            error.message
+        );
 
         if (error.response) {
             console.error(
                 "Paystack HTTP status:",
                 error.response.status
             );
-
-            console.error(
-                "Paystack response:",
-                error.response.data
-            );
         }
 
-        console.error("========================================");
-
         return res.status(
-            error.response?.status === 404 ? 404 : 500
+            error.response?.status ===
+                404
+                ? 404
+                : 500
         ).json({
             success: false,
             message:
-                error.response?.data?.message ||
-                "Unable to verify payment."
+                "Unable to verify payment at this time."
         });
     }
 });
@@ -3608,7 +4883,9 @@ function computeOrderDisplayStatus(order, items) {
     let displayStatus = orderStatus;
 
     if (fulfillmentStatuses.length) {
-        if (fulfillmentStatuses.some(status => status === "Failed")) {
+        if (fulfillmentStatuses.some(status => status === "Review Required")) {
+            displayStatus = "Review Required";
+        } else if (fulfillmentStatuses.some(status => status === "Failed")) {
             displayStatus = "Failed";
         } else if (
             fulfillmentStatuses.every(status => status === "Completed")
@@ -3652,33 +4929,21 @@ app.get("/orders", requireLogin, (req, res) => {
         const result = orders.map(order => {
             const items = getItems.all(order.order_id);
             let orderTotal = Number(order.order_total || 0);
-            const fulfillmentStatuses = items.map(
-                item => String(item.fulfillment_status || "Pending")
-            );
-
-            let displayStatus = order.status || "Pending";
-
-            if (fulfillmentStatuses.length) {
-                if (fulfillmentStatuses.some(status => status === "Failed")) {
-                    displayStatus = "Failed";
-                } else if (
-                    fulfillmentStatuses.every(status => status === "Completed")
-                ) {
-                    displayStatus = "Completed";
-                } else if (
-                    fulfillmentStatuses.some(status => status === "Processing")
-                ) {
-                    displayStatus = "Processing";
-                } else {
-                    displayStatus = "Pending";
-                }
-            }
+            const displayStatus =
+                computeOrderDisplayStatus(
+                    order,
+                    items
+                );
 
             if (orderTotal === 0 && items.length) {
                 orderTotal = items.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
             }
 
-            const amountChargedKobo = Number(order.amount_charged || order.amount || 0);
+            const amountChargedKobo =
+                Number(
+                    order.amount_charged ??
+                    0
+                );
 
             return {
                 orderId: order.order_id,
@@ -3690,6 +4955,7 @@ app.get("/orders", requireLogin, (req, res) => {
                 amountCharged: amountChargedKobo / 100,
                 currency: order.currency,
                 status: displayStatus,
+                paymentStatus: order.status,
                 paidAt: order.paid_at,
                 createdAt: order.created_at,
                 items: items.map(item => ({
@@ -3698,7 +4964,12 @@ app.get("/orders", requireLogin, (req, res) => {
                     qty: item.quantity,
                     playerId: item.player_id,
                     serverId: item.server_id,
-                    fulfillmentStatus: item.fulfillment_status || "Pending"
+                    fulfillmentStatus:
+                        order.status === "Refunded"
+                            ? "Refunded"
+                            : order.status === "Cancelled"
+                                ? "Cancelled"
+                                : item.fulfillment_status || "Pending"
                 }))
             };
         });
@@ -3738,6 +5009,7 @@ app.get("/api/admin/orders", requireAdmin, (req, res) => {
                 player_id,
                 server_id,
                 fulfillment_status,
+                fulfillment_error,
                 fzr_order_id
             FROM order_items
             WHERE order_id = ?
@@ -3760,7 +5032,10 @@ app.get("/api/admin/orders", requireAdmin, (req, res) => {
             }
 
             const amountChargedKobo =
-                Number(order.amount_charged || order.amount || 0);
+                Number(
+                    order.amount_charged ??
+                    0
+                );
 
             return {
                 orderId: order.order_id,
@@ -3797,6 +5072,7 @@ app.get("/api/admin/orders", requireAdmin, (req, res) => {
 
                     supplierPriceUsd: item.supplier_price_usd,
                     fulfillmentStatus: item.fulfillment_status || "Pending",
+                    fulfillmentError: item.fulfillment_error || null,
                     fzrOrderId: item.fzr_order_id || null,
                 }))
             };
@@ -3837,25 +5113,22 @@ app.patch("/api/admin/orders/:orderId/status", requireAdmin, (req, res) => {
             });
         }
 
-        const allowedStatuses = [
-            "Pending",
-            "Paid",
-            "Processing",
-            "Completed",
-            "Failed",
-            "Cancelled",
-            "Refunded"
-        ];
+        const allowedStatuses = ["Cancelled", "Refunded"];
 
         if (!allowedStatuses.includes(status)) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid order status."
+                message:
+                    "Admins can only cancel unpaid orders or mark confirmed paid orders as refunded."
             });
         }
 
         const existingOrder = db.prepare(`
-            SELECT order_id, status
+            SELECT
+                order_id,
+                status,
+                amount_charged,
+                paid_at
             FROM orders
             WHERE order_id = ?
         `).get(orderId);
@@ -3867,35 +5140,70 @@ app.patch("/api/admin/orders/:orderId/status", requireAdmin, (req, res) => {
             });
         }
 
+        const amountCharged = Number(existingOrder.amount_charged ?? 0);
+        const hasConfirmedPayment =
+            Boolean(existingOrder.paid_at) && amountCharged > 0;
+
+        if (status === "Cancelled") {
+            if (hasConfirmedPayment) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "A confirmed paid order cannot be cancelled. Use Refunded only after the refund has actually been handled."
+                });
+            }
+
+            if (["Refunded", "Cancelled"].includes(existingOrder.status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Order is already ${existingOrder.status}.`
+                });
+            }
+        }
+
+        if (status === "Refunded") {
+            if (!hasConfirmedPayment) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Only an order with a confirmed payment can be marked Refunded."
+                });
+            }
+
+            if (existingOrder.status === "Refunded") {
+                return res.status(400).json({
+                    success: false,
+                    message: "Order is already Refunded."
+                });
+            }
+
+            const processingItem = db.prepare(`
+                SELECT id
+                FROM order_items
+                WHERE order_id = ?
+                  AND fulfillment_status = 'Processing'
+                LIMIT 1
+            `).get(orderId);
+
+            if (processingItem) {
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        "This order still has a Processing FZR delivery. Check its supplier status before marking the order Refunded."
+                });
+            }
+        }
+
         db.prepare(`
             UPDATE orders
             SET status = ?
             WHERE order_id = ?
-        `).run(
-            status,
-            orderId
-        );
-
-        // Refunding/cancelling/failing an order should also stop the
-        // background FZR poller from checking on it forever — any item
-        // still stuck at Pending/Processing gets marked Failed too.
-        if (["Refunded", "Cancelled", "Failed"].includes(status)) {
-            db.prepare(`
-                UPDATE order_items
-                SET fulfillment_status = 'Failed'
-                WHERE order_id = ?
-                  AND fulfillment_status IN ('Pending', 'Processing')
-            `).run(orderId);
-        }
+        `).run(status, orderId);
 
         const updatedOrder = db.prepare(`
             SELECT
                 order_id,
                 reference,
-                user_id,
-                email,
-                phone,
-                amount,
                 order_total,
                 amount_charged,
                 currency,
@@ -3906,7 +5214,7 @@ app.patch("/api/admin/orders/:orderId/status", requireAdmin, (req, res) => {
             WHERE order_id = ?
         `).get(orderId);
 
-        console.log("ADMIN ORDER STATUS UPDATED:", {
+        logger.info("ADMIN ORDER STATUS UPDATED:", {
             adminUserId: req.session?.userId,
             orderId,
             oldStatus: existingOrder.status,
@@ -3915,18 +5223,17 @@ app.patch("/api/admin/orders/:orderId/status", requireAdmin, (req, res) => {
 
         return res.json({
             success: true,
-            message: "Order status updated successfully.",
+            message:
+                status === "Cancelled"
+                    ? "Unpaid order cancelled."
+                    : "Order marked Refunded.",
             order: {
                 orderId: updatedOrder.order_id,
                 reference: updatedOrder.reference,
                 status: updatedOrder.status,
                 orderTotal: Number(updatedOrder.order_total || 0),
                 amountCharged:
-                    Number(
-                        updatedOrder.amount_charged ||
-                        updatedOrder.amount ||
-                        0
-                    ) / 100,
+                    Number(updatedOrder.amount_charged ?? 0) / 100,
                 currency: updatedOrder.currency,
                 paidAt: updatedOrder.paid_at,
                 createdAt: updatedOrder.created_at
@@ -3934,7 +5241,10 @@ app.patch("/api/admin/orders/:orderId/status", requireAdmin, (req, res) => {
         });
 
     } catch (error) {
-        console.error("Admin order status update error:", error);
+        logger.error(
+            "Admin order status update error:",
+            error.message
+        );
 
         return res.status(500).json({
             success: false,
@@ -3950,9 +5260,85 @@ app.patch("/api/admin/orders/:orderId/status", requireAdmin, (req, res) => {
 app.get("/api/admin/settings", requireAdmin, (req, res) => {
     res.json({
         success: true,
-        maintenanceMode: getSetting("maintenance_mode", "0") === "1",
-        usdNgnRate: Number(getSetting("usd_ngn_rate", FZR_EXCHANGE_RATE))
+
+        maintenanceMode:
+            getSetting("maintenance_mode", "0") === "1",
+
+        usdNgnRate:
+            Number(
+                getSetting(
+                    "usd_ngn_rate",
+                    FZR_EXCHANGE_RATE
+                )
+            ),
+
+        paymentsEnabled:
+            getSetting("payments_enabled", "1") === "1",
+
+        autoFulfillmentEnabled:
+            getSetting(
+                "auto_fulfillment_enabled",
+                "1"
+            ) === "1",
+
+        maxQuantity:
+            Number(
+                getSetting(
+                    "max_quantity",
+                    "20"
+                )
+            ),
+
+        pendingOrderExpiryHours:
+            Number(
+                getSetting(
+                    "pending_order_expiry_hours",
+                    "24"
+                )
+            ),
+
+        storeAnnouncement:
+            getSetting(
+                "store_announcement",
+                ""
+            ),
+        notificationsEnabled:
+            getSetting(
+                "notifications_enabled",
+                "1"
+            ) === "1",
+
+        notifyFailedFulfillment:
+            getSetting(
+                "notify_failed_fulfillment",
+                "1"
+            ) === "1",
+
+        notifyNewComplaint:
+            getSetting(
+                "notify_new_complaint",
+                "1"
+            ) === "1",
+
+        notifyPaymentError:
+            getSetting(
+                "notify_payment_error",
+                "1"
+            ) === "1",
+
+        notifyPaidOrder:
+            getSetting(
+                "notify_paid_order",
+                "0"
+            ) === "1",
+
+        notificationEmail:
+            getSetting(
+                "notification_email",
+                process.env.SMTP_USER || ""
+            )
     });
+
 });
 
 app.patch("/api/admin/settings", requireAdmin, (req, res) => {
@@ -3969,6 +5355,188 @@ app.patch("/api/admin/settings", requireAdmin, (req, res) => {
             setSetting("usd_ngn_rate", String(rate));
         }
 
+        if (
+            typeof req.body?.paymentsEnabled ===
+            "boolean"
+        ) {
+            setSetting(
+                "payments_enabled",
+                req.body.paymentsEnabled
+                    ? "1"
+                    : "0"
+            );
+        }
+
+        if (
+            typeof req.body?.autoFulfillmentEnabled ===
+            "boolean"
+        ) {
+            setSetting(
+                "auto_fulfillment_enabled",
+                req.body.autoFulfillmentEnabled
+                    ? "1"
+                    : "0"
+            );
+        }
+
+        if (
+            req.body?.maxQuantity !== undefined
+        ) {
+            const maxQuantity =
+                Number(req.body.maxQuantity);
+
+            if (
+                !Number.isInteger(maxQuantity) ||
+                maxQuantity < 1 ||
+                maxQuantity > 100
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Maximum quantity must be between 1 and 100."
+                });
+            }
+
+            setSetting(
+                "max_quantity",
+                String(maxQuantity)
+            );
+        }
+
+        if (
+            req.body?.pendingOrderExpiryHours !==
+            undefined
+        ) {
+            const hours =
+                Number(
+                    req.body.pendingOrderExpiryHours
+                );
+
+            if (
+                !Number.isFinite(hours) ||
+                hours < 1 ||
+                hours > 168
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Pending order expiry must be between 1 and 168 hours."
+                });
+            }
+
+            setSetting(
+                "pending_order_expiry_hours",
+                String(hours)
+            );
+        }
+
+        if (
+            req.body?.storeAnnouncement !==
+            undefined
+        ) {
+            const announcement =
+                String(
+                    req.body.storeAnnouncement ||
+                    ""
+                )
+                    .trim()
+                    .slice(0, 300);
+
+            setSetting(
+                "store_announcement",
+                announcement
+            );
+        }
+
+        if (
+            typeof req.body?.notificationsEnabled ===
+            "boolean"
+        ) {
+            setSetting(
+                "notifications_enabled",
+                req.body.notificationsEnabled
+                    ? "1"
+                    : "0"
+            );
+        }
+
+        if (
+            typeof req.body?.notifyFailedFulfillment ===
+            "boolean"
+        ) {
+            setSetting(
+                "notify_failed_fulfillment",
+                req.body.notifyFailedFulfillment
+                    ? "1"
+                    : "0"
+            );
+        }
+
+        if (
+            typeof req.body?.notifyNewComplaint ===
+            "boolean"
+        ) {
+            setSetting(
+                "notify_new_complaint",
+                req.body.notifyNewComplaint
+                    ? "1"
+                    : "0"
+            );
+        }
+
+        if (
+            typeof req.body?.notifyPaymentError ===
+            "boolean"
+        ) {
+            setSetting(
+                "notify_payment_error",
+                req.body.notifyPaymentError
+                    ? "1"
+                    : "0"
+            );
+        }
+
+        if (
+            typeof req.body?.notifyPaidOrder ===
+            "boolean"
+        ) {
+            setSetting(
+                "notify_paid_order",
+                req.body.notifyPaidOrder
+                    ? "1"
+                    : "0"
+            );
+        }
+
+        if (
+            req.body?.notificationEmail !==
+            undefined
+        ) {
+            const notificationEmail =
+                String(
+                    req.body.notificationEmail ||
+                    ""
+                )
+                    .trim()
+                    .toLowerCase();
+
+            if (
+                notificationEmail &&
+                !notificationEmail.includes("@")
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Enter a valid notification email."
+                });
+            }
+
+            setSetting(
+                "notification_email",
+                notificationEmail
+            );
+        }
+
         console.log("Store settings updated by admin.");
 
         return res.json({ success: true, message: "Settings saved." });
@@ -3976,110 +5544,560 @@ app.patch("/api/admin/settings", requireAdmin, (req, res) => {
         console.error("Settings update error:", error);
         return res.status(500).json({ success: false, message: "Unable to save settings." });
     }
+
 });
 
 /* =========================================================
    ADMIN SYSTEM STATUS
 ========================================================= */
-app.get("/api/admin/system-status", requireAdmin, async (req, res) => {
-    const status = {
-        database: false,
-        paystackConfigured: false,
-        fzrConfigured: false,
-        smtpConfigured: false
-    };
 
-    try {
-        db.prepare(`SELECT 1`).get();
-        status.database = true;
-    } catch (error) {
-        status.database = false;
+app.get(
+    "/api/admin/system-status",
+    requireAdmin,
+    async (req, res) => {
+
+        let databaseStatus =
+            "healthy";
+
+        try {
+            db.prepare(`
+                SELECT 1
+            `).get();
+        } catch (error) {
+            databaseStatus =
+                "error";
+        }
+
+        return res.json({
+            success: true,
+
+            system: {
+
+                paystack: {
+                    configured:
+                        Boolean(
+                            process.env.PAYSTACK_SECRET_KEY &&
+                            process.env.PAYSTACK_PUBLIC_KEY
+                        )
+                },
+
+                fzr: {
+                    configured:
+                        Boolean(
+                            process.env.FZR_API_KEY
+                        )
+                },
+
+                smtp: {
+                    status:
+                        smtpStatus
+                },
+
+                environment:
+                    process.env.NODE_ENV ===
+                        "production"
+                        ? "production"
+                        : "development",
+
+                database: {
+                    status:
+                        databaseStatus
+                },
+
+                lastPaystackWebhook:
+                    getSetting(
+                        "last_paystack_webhook_at",
+                        ""
+                    ) || null
+            }
+        });
+    }
+);
+/* =========================================================
+   ADMIN — FULFILL PENDING FZR ITEM
+========================================================= */
+app.post(
+    "/api/admin/orders/:orderId/items/:itemId/fulfill",
+    requireAdmin,
+    async (req, res) => {
+        try {
+            const orderId = String(req.params.orderId || "").trim();
+            const itemId = Number(req.params.itemId);
+
+            if (!orderId || !Number.isInteger(itemId) || itemId <= 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid order or item."
+                });
+            }
+
+            const orderItem = db.prepare(`
+                SELECT
+                    oi.id,
+                    oi.order_id,
+                    oi.offer_id,
+                    oi.category_id,
+                    oi.player_id,
+                    oi.server_id,
+                    oi.fulfillment_status,
+                    oi.fzr_order_id,
+                    o.status AS order_status,
+                    o.amount_charged,
+                    o.paid_at
+                FROM order_items oi
+                INNER JOIN orders o
+                    ON o.order_id = oi.order_id
+                WHERE oi.id = ?
+                  AND oi.order_id = ?
+                LIMIT 1
+            `).get(itemId, orderId);
+
+            if (!orderItem) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Order item not found."
+                });
+            }
+
+            const hasConfirmedPayment =
+                Boolean(orderItem.paid_at) &&
+                Number(orderItem.amount_charged ?? 0) > 0 &&
+                !["Refunded", "Cancelled"].includes(orderItem.order_status);
+
+            if (!hasConfirmedPayment) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "This item cannot be fulfilled until its payment is confirmed."
+                });
+            }
+
+            if (orderItem.fulfillment_status !== "Pending") {
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        `Only Pending items can be fulfilled. Current status: ${orderItem.fulfillment_status}.`
+                });
+            }
+
+            if (orderItem.fzr_order_id) {
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        "This item already has an FZR order ID and cannot be submitted again."
+                });
+            }
+
+            const claim = db.prepare(`
+                UPDATE order_items
+                SET fulfillment_status = 'Processing'
+                WHERE id = ?
+                  AND order_id = ?
+                  AND fulfillment_status = 'Pending'
+                  AND fzr_order_id IS NULL
+            `).run(itemId, orderId);
+
+            if (claim.changes !== 1) {
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        "This item is already being processed by another request."
+                });
+            }
+
+            try {
+                const fzrResult = await createFzrTopup({
+                    offerId: orderItem.offer_id,
+                    categoryId: orderItem.category_id,
+                    playerId: orderItem.player_id,
+                    serverId: orderItem.server_id
+                });
+
+                const fzrOrderId = fzrResult?.order?.id || null;
+                const normalizedStatus = String(
+                    fzrResult?.order?.status || "created"
+                ).toLowerCase();
+
+                const fulfillmentStatus =
+                    mapFzrStatusToFulfillmentStatus(normalizedStatus);
+
+                db.prepare(`
+                    UPDATE order_items
+                    SET fulfillment_status = ?,
+                        fzr_order_id = ?
+                    WHERE id = ?
+                `).run(fulfillmentStatus, fzrOrderId, itemId);
+
+                return res.json({
+                    success: true,
+                    fulfillmentStatus,
+                    fzrOrderId,
+                    message:
+                        fulfillmentStatus === "Completed"
+                            ? "Delivery completed."
+                            : "Delivery submitted to FZR."
+                });
+
+            } catch (fzrError) {
+                const failure = fzrFailureDetails(fzrError);
+                db.prepare(`
+                    UPDATE order_items
+                    SET fulfillment_status = ?, fulfillment_error = ?
+                    WHERE id = ?
+                      AND fulfillment_status = 'Processing'
+                      AND fzr_order_id IS NULL
+                `).run(failure.status, failure.message, itemId);
+
+                sendFulfillmentFailureAlert(orderItem, failure.message, failure.status);
+
+                return res.status(502).json({
+                    success: false,
+                    requiresReview: failure.status === "Review Required",
+                    message: failure.status === "Review Required"
+                        ? failure.message + " Check FZR order history before any retry."
+                        : "FZR rejected the fulfillment request: " + failure.message
+                });
+            }
+
+        } catch (error) {
+            logger.error("Manual fulfillment error:", error.message);
+
+            return res.status(500).json({
+                success: false,
+                message: "Unable to fulfill this item."
+            });
+        }
+    }
+);
+
+/* =========================================================
+   ADMIN — CHECK FZR ITEM STATUS
+========================================================= */
+app.post(
+    "/api/admin/orders/:orderId/items/:itemId/check-status",
+    requireAdmin,
+    async (req, res) => {
+        try {
+            const orderId = String(req.params.orderId || "").trim();
+            const itemId = Number(req.params.itemId);
+
+            if (!orderId || !Number.isInteger(itemId) || itemId <= 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid order or item."
+                });
+            }
+
+            const orderItem = db.prepare(`
+                SELECT
+                    id,
+                    order_id,
+                    fulfillment_status,
+                    fzr_order_id
+                FROM order_items
+                WHERE id = ?
+                  AND order_id = ?
+                LIMIT 1
+            `).get(itemId, orderId);
+
+            if (!orderItem) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Order item not found."
+                });
+            }
+
+            if (!orderItem.fzr_order_id) {
+                return res.status(400).json({
+                    success: false,
+                    message: "This item does not have an FZR order ID yet."
+                });
+            }
+
+            const fzrOrder = await getFzrOrderStatus(orderItem.fzr_order_id);
+            const fulfillmentStatus =
+                mapFzrStatusToFulfillmentStatus(fzrOrder.status);
+
+            db.prepare(`
+                UPDATE order_items
+                SET fulfillment_status = ?
+                WHERE id = ?
+            `).run(fulfillmentStatus, itemId);
+
+            return res.json({
+                success: true,
+                fulfillmentStatus,
+                fzrOrderId: orderItem.fzr_order_id,
+                message:
+                    fulfillmentStatus === "Processing"
+                        ? "FZR is still processing this delivery."
+                        : `FZR status updated to ${fulfillmentStatus}.`
+            });
+
+        } catch (error) {
+            logger.error("FZR manual status check failed:", error.message);
+
+            return res.status(502).json({
+                success: false,
+                message:
+                    "Unable to check FZR status right now: " + error.message
+            });
+        }
+    }
+);
+
+/* =========================================================
+   ADMIN — CONFIRM NO FZR ORDER AFTER AMBIGUOUS FAILURE
+========================================================= */
+app.post("/api/admin/orders/:orderId/items/:itemId/confirm-no-fzr-order", requireAdmin, (req, res) => {
+    const orderId = String(req.params.orderId || "").trim();
+    const itemId = Number(req.params.itemId);
+
+    if (!orderId || !Number.isInteger(itemId) || itemId <= 0) {
+        return res.status(400).json({ success: false, message: "Invalid order or item." });
+    }
+    if (req.body?.confirmed !== true) {
+        return res.status(400).json({ success: false, message: "Explicit confirmation is required after checking FZR order history." });
     }
 
-    status.paystackConfigured = !!process.env.PAYSTACK_SECRET_KEY;
-    status.fzrConfigured = !!process.env.FZR_API_KEY;
-    status.smtpConfigured = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+    const result = db.prepare(`
+        UPDATE order_items
+        SET fulfillment_status = 'Failed',
+            fulfillment_error = 'Admin confirmed no FZR supplier order exists; safe to retry.'
+        WHERE id = ? AND order_id = ?
+          AND fulfillment_status = 'Review Required'
+          AND (fzr_order_id IS NULL OR fzr_order_id = '')
+    `).run(itemId, orderId);
 
-    return res.json({ success: true, status });
+    if (result.changes !== 1) {
+        return res.status(409).json({ success: false, message: "Item is not awaiting manual FZR review, or it already has an FZR order ID." });
+    }
+
+    logger.warn(`Admin confirmed no FZR order exists for ${orderId} item ${itemId}; retry enabled.`);
+    return res.json({ success: true, message: "Review recorded. Retry Delivery is now enabled." });
 });
 
 /* =========================================================
    ADMIN — RETRY FAILED FZR DELIVERY
 ========================================================= */
 
-app.post("/api/admin/orders/:orderId/items/:itemId/retry", requireAdmin, async (req, res) => {
-    try {
-        const orderId = String(req.params.orderId || "").trim();
-        const itemId = Number(req.params.itemId);
-
-        const orderItem = db.prepare(`
-            SELECT id, order_id, offer_id, category_id, player_id, server_id, fulfillment_status
-            FROM order_items
-            WHERE id = ? AND order_id = ?
-        `).get(itemId, orderId);
-
-        if (!orderItem) {
-            return res.status(404).json({
-                success: false,
-                message: "Order item not found."
-            });
-        }
-
-        if (orderItem.fulfillment_status !== "Failed") {
-            return res.status(400).json({
-                success: false,
-                message: "Only failed items can be retried."
-            });
-        }
-
+app.post(
+    "/api/admin/orders/:orderId/items/:itemId/retry",
+    requireAdmin,
+    async (req, res) => {
         try {
-            const fzrResult = await createFzrTopup({
-                offerId: orderItem.offer_id,
-                categoryId: orderItem.category_id,
-                playerId: orderItem.player_id,
-                serverId: orderItem.server_id
-            });
+            const orderId =
+                String(req.params.orderId || "").trim();
 
-            const fzrOrderId = fzrResult.order?.id || null;
-            const normalizedFzrStatus = String(fzrResult.order?.status || "").toLowerCase();
+            const itemId =
+                Number(req.params.itemId);
 
-            let fulfillmentStatus = "Processing";
-            if (["completed", "success", "successful"].includes(normalizedFzrStatus)) {
-                fulfillmentStatus = "Completed";
-            } else if (["failed", "cancelled", "canceled"].includes(normalizedFzrStatus)) {
-                fulfillmentStatus = "Failed";
+            if (
+                !orderId ||
+                !Number.isInteger(itemId) ||
+                itemId <= 0
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid order or item."
+                });
             }
 
-            db.prepare(`
+            /* -------------------------------------------------
+               LOAD ORDER + ITEM
+            ------------------------------------------------- */
+
+            const orderItem = db.prepare(`
+                SELECT
+                    oi.id,
+                    oi.order_id,
+                    oi.offer_id,
+                    oi.category_id,
+                    oi.player_id,
+                    oi.server_id,
+                    oi.fulfillment_status,
+                    oi.fzr_order_id,
+                    o.status AS order_status,
+                    o.amount_charged,
+                    o.paid_at
+                FROM order_items oi
+                INNER JOIN orders o
+                    ON o.order_id = oi.order_id
+                WHERE oi.id = ?
+                  AND oi.order_id = ?
+                LIMIT 1
+            `).get(
+                itemId,
+                orderId
+            );
+
+            if (!orderItem) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Order item not found."
+                });
+            }
+
+            /* -------------------------------------------------
+               ORDER MUST ACTUALLY BE PAID
+            ------------------------------------------------- */
+
+            const hasConfirmedPayment =
+                Boolean(orderItem.paid_at) &&
+                Number(orderItem.amount_charged ?? 0) > 0 &&
+                !["Refunded", "Cancelled"].includes(orderItem.order_status);
+
+            if (!hasConfirmedPayment) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Cannot retry delivery because this order does not have a confirmed active payment."
+                });
+            }
+
+            /* -------------------------------------------------
+               ONLY FAILED ITEMS CAN BE RETRIED
+            ------------------------------------------------- */
+
+            if (
+                orderItem.fulfillment_status !==
+                "Failed"
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Only failed items can be retried."
+                });
+            }
+
+            /* -------------------------------------------------
+               ATOMICALLY CLAIM RETRY
+
+               Only one concurrent request can change
+               Failed -> Processing.
+            ------------------------------------------------- */
+
+            const claim = db.prepare(`
                 UPDATE order_items
-                SET fulfillment_status = ?, fzr_order_id = ?
+                SET
+                    fulfillment_status = 'Processing',
+                    fulfillment_error = NULL,
+                    fzr_order_id = NULL
                 WHERE id = ?
-            `).run(fulfillmentStatus, fzrOrderId, orderItem.id);
+                  AND order_id = ?
+                  AND fulfillment_status = 'Failed'
+            `).run(
+                orderItem.id,
+                orderItem.order_id
+            );
 
-            console.log(`Retry: item ${orderItem.id} → ${fulfillmentStatus}`);
+            if (claim.changes !== 1) {
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        "This item is already being retried."
+                });
+            }
 
-            return res.json({
-                success: true,
-                fulfillmentStatus,
-                message: `Retry sent — status: ${fulfillmentStatus}.`
-            });
+            try {
+                /* -------------------------------------------------
+                   SEND RETRY TO FZR
+                ------------------------------------------------- */
 
-        } catch (fzrError) {
-            console.error("Retry failed:", fzrError.message);
-            return res.status(502).json({
+                const fzrResult =
+                    await createFzrTopup({
+                        offerId:
+                            orderItem.offer_id,
+
+                        categoryId:
+                            orderItem.category_id,
+
+                        playerId:
+                            orderItem.player_id,
+
+                        serverId:
+                            orderItem.server_id
+                    });
+
+                const fzrOrderId =
+                    fzrResult?.order?.id ||
+                    null;
+
+                const fulfillmentStatus =
+                    mapFzrStatusToFulfillmentStatus(
+                        fzrResult?.order?.status
+                    );
+
+                db.prepare(`
+                    UPDATE order_items
+                    SET
+                        fulfillment_status = ?,
+                        fzr_order_id = ?
+                    WHERE id = ?
+                `).run(
+                    fulfillmentStatus,
+                    fzrOrderId,
+                    orderItem.id
+                );
+
+                console.log(
+                    `Retry: item ${orderItem.id} → ${fulfillmentStatus}`
+                );
+
+                return res.json({
+                    success: true,
+                    fulfillmentStatus,
+                    fzrOrderId,
+                    message:
+                        `Retry sent — status: ${fulfillmentStatus}.`
+                });
+
+            } catch (fzrError) {
+
+                console.error(
+                    "Retry failed:",
+                    fzrError.message
+                );
+
+                /*
+                 * Important:
+                 * Return it to Failed so admin can
+                 * safely attempt another retry later.
+                 */
+                const failure = fzrFailureDetails(fzrError);
+                db.prepare(`
+                    UPDATE order_items
+                    SET fulfillment_status = ?, fulfillment_error = ?
+                    WHERE id = ?
+                      AND fulfillment_status = 'Processing'
+                `).run(failure.status, failure.message, orderItem.id);
+
+                sendFulfillmentFailureAlert(orderItem, failure.message, failure.status);
+
+                return res.status(502).json({
+                    success: false,
+                    requiresReview: failure.status === "Review Required",
+                    message: failure.status === "Review Required"
+                        ? failure.message + " Check FZR order history before any retry."
+                        : "FZR rejected the retry: " + failure.message
+                });
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Retry endpoint error:",
+                error
+            );
+
+            return res.status(500).json({
                 success: false,
-                message: "FZR rejected the retry: " + fzrError.message
+                message:
+                    "Unable to retry this item."
             });
         }
-
-    } catch (error) {
-        console.error("Retry endpoint error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Unable to retry this item."
-        });
     }
-});
+);
 
 /* =========================================================
    ADMIN — ANALYTICS
@@ -4087,110 +6105,754 @@ app.post("/api/admin/orders/:orderId/items/:itemId/retry", requireAdmin, async (
 
 app.get("/api/admin/analytics", requireAdmin, (req, res) => {
     try {
-        // Total orders
-        const totalOrdersRow = db.prepare(`
-            SELECT COUNT(*) AS total
-            FROM orders
-            WHERE status NOT IN ('Failed', 'Cancelled')
-        `).get();
 
-        // Total revenue
+        /* =====================================================
+           MONEY
+        ===================================================== */
+
         const revenueRow = db.prepare(`
-            SELECT COALESCE(
-                SUM(amount_charged),
-                0
-            ) AS revenue
+            SELECT
+                COALESCE(
+                    SUM(amount_charged),
+                    0
+                ) AS revenue
             FROM orders
-            WHERE status NOT IN ('Failed', 'Cancelled', 'Refunded')
+            WHERE amount_charged > 0
+              AND status NOT IN (
+                    'Refunded',
+                    'Cancelled',
+                    'Failed'
+              )
         `).get();
 
-        // Total supplier cost / profit
-        const profitRow = db.prepare(`
-            SELECT COALESCE(
-                SUM(
-                    oi.supplier_cost_ngn * oi.quantity),
-                0
-            ) AS cost
+
+        const todayRevenueRow = db.prepare(`
+            SELECT
+                COALESCE(
+                    SUM(amount_charged),
+                    0
+                ) AS revenue
+            FROM orders
+            WHERE amount_charged > 0
+              AND status NOT IN (
+                    'Refunded',
+                    'Cancelled',
+                    'Failed'
+              )
+              AND paid_at IS NOT NULL
+              AND date(
+                    datetime(paid_at)
+                  ) = date('now')
+        `).get();
+
+
+        const sevenDayRevenueRow = db.prepare(`
+            SELECT
+                COALESCE(
+                    SUM(amount_charged),
+                    0
+                ) AS revenue
+            FROM orders
+            WHERE amount_charged > 0
+              AND status NOT IN (
+                    'Refunded',
+                    'Cancelled',
+                    'Failed'
+              )
+              AND paid_at IS NOT NULL
+              AND datetime(paid_at)
+                    >= datetime(
+                        'now',
+                        '-7 days'
+                    )
+        `).get();
+
+
+        const monthRevenueRow = db.prepare(`
+            SELECT
+                COALESCE(
+                    SUM(amount_charged),
+                    0
+                ) AS revenue
+            FROM orders
+            WHERE amount_charged > 0
+              AND status NOT IN (
+                    'Refunded',
+                    'Cancelled',
+                    'Failed'
+              )
+              AND paid_at IS NOT NULL
+              AND strftime(
+                    '%Y-%m',
+                    datetime(paid_at)
+                  ) = strftime(
+                    '%Y-%m',
+                    'now'
+                  )
+        `).get();
+
+
+        const supplierCostRow = db.prepare(`
+            SELECT
+                COALESCE(
+                    SUM(
+                        oi.supplier_cost_ngn *
+                        oi.quantity
+                    ),
+                    0
+                ) AS cost
             FROM order_items oi
             INNER JOIN orders o
-                ON oi.order_id = o.order_id
-            WHERE o.status NOT IN ('Failed', 'Cancelled', 'Refunded')
+                ON o.order_id =
+                   oi.order_id
+            WHERE o.amount_charged > 0
+              AND o.status NOT IN (
+                    'Refunded',
+                    'Cancelled',
+                    'Failed'
+              )
         `).get();
 
-        // Today's sales
-        const todayRow = db.prepare(`
-            SELECT COALESCE(
-                SUM(amount_charged),
-                0
-            ) AS sales
+
+        const refundedValueRow = db.prepare(`
+            SELECT
+                COALESCE(
+                    SUM(amount_charged),
+                    0
+                ) AS value
             FROM orders
-            WHERE status NOT IN ('Failed', 'Cancelled', 'Refunded')
-            AND date(created_at) = date('now')
+            WHERE status = 'Refunded'
         `).get();
 
-        // Pending orders
-        const pendingRow = db.prepare(`
-            SELECT COUNT(*) AS total
+
+        /* =====================================================
+           ORDERS
+        ===================================================== */
+
+        const orderStats = db.prepare(`
+            SELECT
+                COUNT(*) AS total,
+
+                SUM(
+                    CASE
+                        WHEN amount_charged > 0
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS paid,
+
+                SUM(
+                    CASE
+                        WHEN status = 'Pending'
+                        AND amount_charged = 0
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS pending,
+
+                SUM(
+                    CASE
+                        WHEN status = 'Processing'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS processing,
+
+                SUM(
+                    CASE
+                        WHEN status = 'Completed'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS completed,
+
+                SUM(
+                    CASE
+                        WHEN status = 'Failed'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS failed,
+
+                SUM(
+                    CASE
+                        WHEN status = 'Cancelled'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS cancelled,
+
+                SUM(
+                    CASE
+                        WHEN status = 'Refunded'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS refunded
+
             FROM orders
-            WHERE status = 'Pending'
         `).get();
+
+
+        /* =====================================================
+           FULFILLMENT
+        ===================================================== */
+
+        const fulfillmentStats =
+            db.prepare(`
+                SELECT
+                    COUNT(*) AS total,
+
+                    SUM(
+                        CASE
+                            WHEN oi.fulfillment_status =
+                                 'Completed'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS completed,
+
+                    SUM(
+                        CASE
+                            WHEN oi.fulfillment_status =
+                                 'Processing'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS processing,
+
+                    SUM(
+                        CASE
+                            WHEN oi.fulfillment_status =
+                                 'Failed'
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS failed
+
+                FROM order_items oi
+
+                INNER JOIN orders o
+                    ON o.order_id =
+                       oi.order_id
+
+                WHERE o.amount_charged > 0
+                  AND o.status NOT IN (
+                        'Refunded',
+                        'Cancelled'
+                  )
+            `).get();
+
+
+        /* =====================================================
+           CUSTOMERS
+        ===================================================== */
+
+        const customerStats =
+            db.prepare(`
+                SELECT
+                    COUNT(*) AS total
+                FROM users
+                WHERE role = 'customer'
+            `).get();
+
+
+        const repeatCustomers =
+            db.prepare(`
+                SELECT
+                    COUNT(*) AS total
+                FROM (
+                    SELECT
+                        user_id
+                    FROM orders
+
+                    WHERE user_id IS NOT NULL
+                      AND amount_charged > 0
+                      AND status NOT IN (
+                            'Refunded',
+                            'Cancelled',
+                            'Failed'
+                      )
+
+                    GROUP BY user_id
+
+                    HAVING COUNT(*) > 1
+                )
+            `).get();
+
+
+        const newCustomersMonth =
+            db.prepare(`
+                SELECT
+                    COUNT(*) AS total
+                FROM users
+                WHERE role = 'customer'
+                  AND strftime(
+                        '%Y-%m',
+                        datetime(created_at)
+                      ) = strftime(
+                        '%Y-%m',
+                        'now'
+                      )
+            `).get();
+
+
+        /* =====================================================
+           TOP PRODUCTS
+        ===================================================== */
+
+        const packageBreakdown =
+            db.prepare(`
+                SELECT
+                    oi.title AS title,
+
+                    SUM(
+                        oi.quantity
+                    ) AS units_sold,
+
+                    SUM(
+                        oi.price *
+                        oi.quantity
+                    ) AS total_sell,
+
+                    SUM(
+                        oi.supplier_cost_ngn *
+                        oi.quantity
+                    ) AS total_cost
+
+                FROM order_items oi
+
+                INNER JOIN orders o
+                    ON oi.order_id =
+                       o.order_id
+
+                WHERE o.amount_charged > 0
+                  AND o.status NOT IN (
+                        'Refunded',
+                        'Cancelled',
+                        'Failed'
+                  )
+
+                GROUP BY oi.title
+
+                ORDER BY total_sell DESC
+            `).all();
+
+
+        const packages =
+            packageBreakdown.map(
+                row => {
+
+                    const sell =
+                        Number(
+                            row.total_sell ||
+                            0
+                        );
+
+                    const cost =
+                        Number(
+                            row.total_cost ||
+                            0
+                        );
+
+                    const profit =
+                        sell - cost;
+
+                    return {
+                        title:
+                            row.title,
+
+                        unitsSold:
+                            Number(
+                                row.units_sold ||
+                                0
+                            ),
+
+                        sellPrice:
+                            sell,
+
+                        supplierPrice:
+                            cost,
+
+                        profit,
+
+                        margin:
+                            sell > 0
+                                ? Number(
+                                    (
+                                        profit /
+                                        sell *
+                                        100
+                                    ).toFixed(2)
+                                )
+                                : 0
+                    };
+                }
+            );
+
+
+        /* =====================================================
+           TOP CUSTOMERS
+        ===================================================== */
+
+        const topCustomers =
+            db.prepare(`
+                SELECT
+                    u.id,
+                    u.name,
+                    u.email,
+
+                    COUNT(o.id)
+                        AS order_count,
+
+                    COALESCE(
+                        SUM(
+                            o.amount_charged
+                        ),
+                        0
+                    ) AS spending
+
+                FROM users u
+
+                INNER JOIN orders o
+                    ON o.user_id =
+                       u.id
+
+                WHERE o.amount_charged > 0
+                  AND o.status NOT IN (
+                        'Refunded',
+                        'Cancelled',
+                        'Failed'
+                  )
+
+                GROUP BY
+                    u.id,
+                    u.name,
+                    u.email
+
+                ORDER BY spending DESC
+
+                LIMIT 10
+            `).all()
+                .map(customer => ({
+                    id:
+                        customer.id,
+
+                    name:
+                        customer.name,
+
+                    email:
+                        customer.email,
+
+                    orderCount:
+                        Number(
+                            customer.order_count ||
+                            0
+                        ),
+
+                    totalSpending:
+                        Number(
+                            customer.spending ||
+                            0
+                        ) / 100
+                }));
+
+
+        /* =====================================================
+           LAST 7 DAYS SALES
+        ===================================================== */
+
+        const dailySales =
+            db.prepare(`
+                SELECT
+                    date(
+                        datetime(paid_at)
+                    ) AS day,
+
+                    COUNT(*) AS orders,
+
+                    COALESCE(
+                        SUM(amount_charged),
+                        0
+                    ) AS revenue
+
+                FROM orders
+
+                WHERE amount_charged > 0
+                  AND paid_at IS NOT NULL
+                  AND status NOT IN (
+                        'Refunded',
+                        'Cancelled',
+                        'Failed'
+                  )
+
+                  AND datetime(paid_at)
+                        >= datetime(
+                            'now',
+                            '-7 days'
+                        )
+
+                GROUP BY
+                    date(
+                        datetime(paid_at)
+                    )
+
+                ORDER BY day ASC
+            `).all()
+                .map(row => ({
+                    day:
+                        row.day,
+
+                    orders:
+                        Number(
+                            row.orders ||
+                            0
+                        ),
+
+                    revenue:
+                        Number(
+                            row.revenue ||
+                            0
+                        ) / 100
+                }));
+
+
+        /* =====================================================
+           FINAL CALCULATIONS
+        ===================================================== */
 
         const totalRevenue =
-            Number(revenueRow.revenue || 0) / 100;
+            Number(
+                revenueRow.revenue ||
+                0
+            ) / 100;
+
 
         const supplierCost =
-            Number(profitRow.cost || 0);
+            Number(
+                supplierCostRow.cost ||
+                0
+            );
+
 
         const profit =
-            totalRevenue - supplierCost;
+            totalRevenue -
+            supplierCost;
 
-        const todaySales =
-            Number(todayRow.sales || 0) / 100;
 
-        // Per-package profit breakdown
-        const packageBreakdown = db.prepare(`
-            SELECT
-                oi.title AS title,
-                SUM(oi.quantity) AS units_sold,
-                SUM(oi.price * oi.quantity) AS total_sell,
-                SUM(oi.supplier_cost_ngn * oi.quantity) AS total_cost
-            FROM order_items oi
-            INNER JOIN orders o ON oi.order_id = o.order_id
-            WHERE o.status NOT IN ('Failed', 'Cancelled', 'Refunded')
-            GROUP BY oi.title
-            ORDER BY total_sell DESC
-        `).all();
+        const profitMargin =
+            totalRevenue > 0
+                ? Number(
+                    (
+                        profit /
+                        totalRevenue *
+                        100
+                    ).toFixed(2)
+                )
+                : 0;
 
-        const packages = packageBreakdown.map(row => ({
-            title: row.title,
-            unitsSold: Number(row.units_sold || 0),
-            sellPrice: Number(row.total_sell || 0),
-            supplierPrice: Number(row.total_cost || 0),
-            profit: Number(row.total_sell || 0) - Number(row.total_cost || 0)
-        }));
+
+        const paidOrders =
+            Number(
+                orderStats.paid ||
+                0
+            );
+
+
+        const averageOrderValue =
+            paidOrders > 0
+                ? totalRevenue /
+                paidOrders
+                : 0;
+
+
+        const completedFulfillment =
+            Number(
+                fulfillmentStats.completed ||
+                0
+            );
+
+
+        const failedFulfillment =
+            Number(
+                fulfillmentStats.failed ||
+                0
+            );
+
+
+        const terminalFulfillment =
+            completedFulfillment +
+            failedFulfillment;
+
+
+        const fulfillmentSuccessRate =
+            terminalFulfillment > 0
+                ? Number(
+                    (
+                        completedFulfillment /
+                        terminalFulfillment *
+                        100
+                    ).toFixed(2)
+                )
+                : 0;
+
 
         const analytics = {
-            totalOrders: Number(totalOrdersRow.total || 0),
-            totalRevenue: totalRevenue,
-            profit: profit,
-            todaySales: todaySales,
-            pendingOrders: Number(pendingRow.total || 0),
-            packages: packages
+
+            money: {
+                totalRevenue,
+
+                todayRevenue:
+                    Number(
+                        todayRevenueRow.revenue ||
+                        0
+                    ) / 100,
+
+                sevenDayRevenue:
+                    Number(
+                        sevenDayRevenueRow.revenue ||
+                        0
+                    ) / 100,
+
+                monthRevenue:
+                    Number(
+                        monthRevenueRow.revenue ||
+                        0
+                    ) / 100,
+
+                supplierCost,
+
+                grossProfit:
+                    profit,
+
+                profitMargin,
+
+                averageOrderValue,
+
+                refundedOrderValue:
+                    Number(
+                        refundedValueRow.value ||
+                        0
+                    ) / 100
+            },
+
+
+            orders: {
+                total:
+                    Number(
+                        orderStats.total ||
+                        0
+                    ),
+
+                paid:
+                    paidOrders,
+
+                pending:
+                    Number(
+                        orderStats.pending ||
+                        0
+                    ),
+
+                processing:
+                    Number(
+                        orderStats.processing ||
+                        0
+                    ),
+
+                completed:
+                    Number(
+                        orderStats.completed ||
+                        0
+                    ),
+
+                failed:
+                    Number(
+                        orderStats.failed ||
+                        0
+                    ),
+
+                cancelled:
+                    Number(
+                        orderStats.cancelled ||
+                        0
+                    ),
+
+                refunded:
+                    Number(
+                        orderStats.refunded ||
+                        0
+                    )
+            },
+
+
+            fulfillment: {
+                total:
+                    Number(
+                        fulfillmentStats.total ||
+                        0
+                    ),
+
+                completed:
+                    completedFulfillment,
+
+                processing:
+                    Number(
+                        fulfillmentStats.processing ||
+                        0
+                    ),
+
+                failed:
+                    failedFulfillment,
+
+                successRate:
+                    fulfillmentSuccessRate
+            },
+
+
+            customers: {
+                total:
+                    Number(
+                        customerStats.total ||
+                        0
+                    ),
+
+                repeat:
+                    Number(
+                        repeatCustomers.total ||
+                        0
+                    ),
+
+                newThisMonth:
+                    Number(
+                        newCustomersMonth.total ||
+                        0
+                    )
+            },
+
+            packages,
+
+            topCustomers,
+
+            dailySales
         };
 
-        console.log("Admin analytics:", analytics);
 
         return res.json({
             success: true,
-            analytics: analytics
+            analytics
         });
 
     } catch (error) {
-        console.error("Could not load admin analytics:", error);
+
+        logger.error(
+            "Could not load admin analytics:",
+            error.message
+        );
 
         return res.status(500).json({
             success: false,
-            message: "Unable to load analytics."
+            message:
+                "Unable to load analytics."
         });
     }
 });
@@ -4269,32 +6931,44 @@ app.get("/api/admin/session", requireAdmin, (req, res) => {
 app.get("/api/admin/products", requireAdmin, (req, res) => {
     try {
         const products = db.prepare(`
-            SELECT
-                id,
-                category_id AS categoryId,
-                offer_id AS offerId,
-                title,
-                supplier_price_usd AS supplierPriceUsd,
-                retail_price_usd AS retailPriceUsd,
-                retail_price_ngn AS retailPriceNgn,
-                available,
-                created_at AS createdAt,
-                updated_at AS updatedAt
-            FROM products
-            WHERE category_id IN ('mobile_legends_global', 'mobile_legends_philippines')
-            ORDER BY category_id ASC, id ASC
-        `).all();
+    SELECT
+        id,
+        category_id AS categoryId,
+        offer_id AS offerId,
+        title,
+        supplier_price_usd AS supplierPriceUsd,
+        retail_price_usd AS retailPriceUsd,
+        retail_price_ngn AS retailPriceNgn,
+        available,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+    FROM products
+    WHERE category_id IN (
+        'mobile_legends_global',
+        'mobile_legends_philippines'
+    )
+    ORDER BY category_id ASC, id ASC
+`).all();
 
-        const exchangeRate = 1400;
+        const exchangeRate =
+            Number(
+                getSetting(
+                    "usd_ngn_rate",
+                    FZR_EXCHANGE_RATE
+                )
+            );
 
         const result = products.map(product => {
 
             const supplierNgn =
-                Number(product.supplier_price_usd || 0) *
-                exchangeRate;
+                Number(
+                    product.supplierPriceUsd || 0
+                ) * exchangeRate;
 
             const retailNgn =
-                Number(product.retailPriceNgn || 0);
+                Number(
+                    product.retailPriceNgn || 0
+                );
 
             const profit =
                 retailNgn - supplierNgn;
@@ -4317,10 +6991,11 @@ app.get("/api/admin/products", requireAdmin, (req, res) => {
                     Math.round(profit),
 
                 profitMargin:
-                    Number(margin.toFixed(2))
+                    Number(
+                        margin.toFixed(2)
+                    )
             };
         });
-
         return res.json({
             success: true,
             products: result
@@ -4380,12 +7055,417 @@ app.patch("/api/admin/products/:id", requireAdmin, (req, res) => {
     }
 });
 
+function expireOldPendingOrders() {
+    try {
+        const expiryHours =
+            Number(
+                getSetting(
+                    "pending_order_expiry_hours",
+                    "24"
+                )
+            );
+
+        const safeExpiryHours =
+            Number.isFinite(expiryHours) &&
+                expiryHours >= 1 &&
+                expiryHours <= 168
+                ? expiryHours
+                : 24;
+
+        const result = db.prepare(`
+            UPDATE orders
+            SET status = 'Cancelled'
+            WHERE status = 'Pending'
+              AND paid_at IS NULL
+              AND COALESCE(amount_charged, 0) = 0
+              AND datetime(created_at)
+                    <= datetime(
+                        'now',
+                        '-' || ? || ' hours'
+                    )
+        `).run(
+            safeExpiryHours
+        );
+
+        if (result.changes > 0) {
+            logger.info(
+                `Expired ${result.changes} unpaid pending order(s) older than ${safeExpiryHours} hour(s).`
+            );
+        }
+
+    } catch (error) {
+        logger.error(
+            "Pending-order expiry failed:",
+            error.message
+        );
+    }
+}
+
+app.get(
+    "/api/admin/unmatched-payments",
+    requireAdmin,
+    (req, res) => {
+
+        try {
+
+            const payments =
+                db.prepare(`
+                    SELECT
+                        id,
+                        reference,
+                        amount,
+                        currency,
+                        email,
+                        phone,
+                        player_id AS playerId,
+                        server_id AS serverId,
+                        paystack_status AS paystackStatus,
+                        paid_at AS paidAt,
+                        resolution_status AS resolutionStatus,
+                        created_at AS createdAt
+                    FROM unmatched_payments
+                    ORDER BY id DESC
+                `).all()
+                    .map(payment => ({
+                        ...payment,
+
+                        amountNgn:
+                            Number(
+                                payment.amount || 0
+                            ) / 100
+                    }));
+
+            return res.json({
+                success: true,
+                payments
+            });
+
+        } catch (error) {
+
+            logger.error(
+                "Unable to load unmatched payments:",
+                error.message
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "Unable to load unmatched payments."
+            });
+        }
+    }
+);
+
+app.post(
+    "/api/admin/unmatched-payments/:id/recover",
+    requireAdmin,
+    async (req, res) => {
+        try {
+            const paymentId =
+                Number(req.params.id);
+
+            const orderId =
+                String(
+                    req.body?.orderId || ""
+                ).trim();
+
+            if (
+                !Number.isInteger(paymentId) ||
+                paymentId < 1 ||
+                !orderId
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "A valid payment and Hiro order ID are required."
+                });
+            }
+
+            const unmatched =
+                db.prepare(`
+                    SELECT *
+                    FROM unmatched_payments
+                    WHERE id = ?
+                `).get(paymentId);
+
+            if (!unmatched) {
+                return res.status(404).json({
+                    success: false,
+                    message:
+                        "Unmatched payment not found."
+                });
+            }
+
+            if (
+                unmatched.resolution_status !==
+                "Unresolved"
+            ) {
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        "This payment has already been resolved."
+                });
+            }
+
+            if (
+                String(
+                    unmatched.paystack_status || ""
+                ).toLowerCase() !== "success" ||
+                !unmatched.paid_at
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Only confirmed successful Paystack payments can be recovered."
+                });
+            }
+
+            const order =
+                db.prepare(`
+                    SELECT *
+                    FROM orders
+                    WHERE order_id = ?
+                `).get(orderId);
+
+            if (!order) {
+                return res.status(404).json({
+                    success: false,
+                    message:
+                        "Hiro order not found."
+                });
+            }
+
+            /*
+             * Recovery is only allowed against an
+             * order that has NOT already been paid.
+             */
+            if (
+                order.paid_at ||
+                Number(
+                    order.amount_charged ?? 0
+                ) > 0
+            ) {
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        "That Hiro order is already marked as paid."
+                });
+            }
+
+            const items =
+                db.prepare(`
+                    SELECT *
+                    FROM order_items
+                    WHERE order_id = ?
+                    ORDER BY id ASC
+                `).all(orderId);
+
+            if (!items.length) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "That order has no purchased items."
+                });
+            }
+
+            /*
+             * Never attach a recovered payment to
+             * something already submitted to FZR.
+             */
+            const alreadyFulfilled =
+                items.some(item =>
+                    item.fzr_order_id ||
+                    ["Processing", "Completed"]
+                        .includes(
+                            item.fulfillment_status
+                        )
+                );
+
+            if (alreadyFulfilled) {
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        "This order already has fulfillment activity."
+                });
+            }
+
+            const expectedKobo =
+                Math.round(
+                    Number(
+                        order.order_total || 0
+                    ) * 100
+                );
+
+            const paidKobo =
+                Number(
+                    unmatched.amount || 0
+                );
+
+            if (
+                expectedKobo <= 0 ||
+                paidKobo !== expectedKobo
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Payment amount does not match the Hiro order total."
+                });
+            }
+
+            /*
+             * Email mismatch should block recovery
+             * when both sides actually contain an email.
+             */
+            const paymentEmail =
+                String(
+                    unmatched.email || ""
+                )
+                    .trim()
+                    .toLowerCase();
+
+            const orderEmail =
+                String(
+                    order.email || ""
+                )
+                    .trim()
+                    .toLowerCase();
+
+            if (
+                paymentEmail &&
+                orderEmail &&
+                paymentEmail !== orderEmail
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Payment customer email does not match the Hiro order."
+                });
+            }
+
+            /*
+             * Critical safety check:
+             * the successful Paystack reference must
+             * not already exist on another Hiro order.
+             */
+            const existingReference =
+                db.prepare(`
+                    SELECT order_id
+                    FROM orders
+                    WHERE reference = ?
+                `).get(
+                    unmatched.reference
+                );
+
+            if (existingReference) {
+                return res.status(409).json({
+                    success: false,
+                    message:
+                        "That Paystack reference is already linked to a Hiro order."
+                });
+            }
+
+            const recoverPayment =
+                db.transaction(() => {
+
+                    /*
+                     * Replace the abandoned checkout
+                     * reference with the actual successful
+                     * Paystack reference.
+                     *
+                     * If the abandoned reference somehow
+                     * succeeds later, its webhook will be
+                     * quarantined as a NEW unmatched payment
+                     * instead of fulfilling twice.
+                     */
+                    db.prepare(`
+                        UPDATE orders
+                        SET
+                            reference = ?,
+                            amount_charged = ?,
+                            status = 'Paid',
+                            paid_at = ?
+                        WHERE order_id = ?
+                          AND paid_at IS NULL
+                          AND COALESCE(
+                                amount_charged,
+                                0
+                              ) = 0
+                    `).run(
+                        unmatched.reference,
+                        paidKobo,
+                        unmatched.paid_at,
+                        orderId
+                    );
+
+                    db.prepare(`
+                        UPDATE order_items
+                        SET
+                            fulfillment_status = 'Pending',
+                            fzr_order_id = NULL
+                        WHERE order_id = ?
+                          AND fulfillment_status
+                              IN ('Pending', 'Failed')
+                          AND fzr_order_id IS NULL
+                    `).run(orderId);
+
+                    db.prepare(`
+                        UPDATE unmatched_payments
+                        SET resolution_status = 'Resolved'
+                        WHERE id = ?
+                          AND resolution_status =
+                              'Unresolved'
+                    `).run(paymentId);
+                });
+
+            recoverPayment();
+
+            logger.info(
+                `Recovered unmatched payment ${unmatched.reference} into order ${orderId}`
+            );
+
+            return res.json({
+                success: true,
+                message:
+                    "Payment recovered successfully. Review the order and use Fulfill Now when ready.",
+                orderId
+            });
+
+        } catch (error) {
+            logger.error(
+                "Unmatched payment recovery failed:",
+                error.message
+            );
+
+            return res.status(500).json({
+                success: false,
+                message:
+                    "Unable to recover payment."
+            });
+        }
+    }
+);
+
 /* =========================================================
    START SERVER
 ========================================================= */
+setTimeout(
+    checkPendingFzrOrders,
+    5000
+);
+
 setInterval(
     checkPendingFzrOrders,
-    10000
+    30000
+);
+
+setTimeout(
+    expireOldPendingOrders,
+    10 * 1000
+);
+
+setInterval(
+    expireOldPendingOrders,
+    60 * 60 * 1000
 );
 
 app.use((err, req, res, next) => {
@@ -4396,6 +7476,12 @@ app.use((err, req, res, next) => {
         message: "Something went wrong. Please try again."
     });
 });
+
+// Refresh independently of admin visits, with one request/category per ten minutes.
+finance.refreshPrices().catch(error => logger.warn("Supplier refresh unavailable:", error.message));
+setInterval(() => {
+    finance.refreshPrices().catch(error => logger.warn("Supplier refresh unavailable:", error.message));
+}, 10 * 60 * 1000).unref();
 
 app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);

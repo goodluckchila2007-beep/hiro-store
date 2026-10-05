@@ -20,7 +20,8 @@
     <meta name="twitter:description"
         content="Fast, secure diamond delivery for Mobile Legends: Bang Bang — trusted by real players in Nigeria.">
     <meta name="twitter:image" content="https://hirostore.site/img/og-image.jpeg">
-    <link rel="stylesheet" href="style.css">
+    <link rel="preload" as="image" href="img/Banner1.webp" fetchpriority="high">
+    <link rel="stylesheet" href="style.css?v=20260914-ux1">
     <link rel="icon" type="image/x-icon" href="img/icon.jpeg">
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Poppins:wght@300;400;600&display=swap"
@@ -51,6 +52,9 @@
             </a>
             <a href="profile.html" class="pill-link">
                 <span class="pill-icon"><img src="img/profile.png" alt=""></span>Profile
+            </a>
+            <a href="orders.html" class="pill-link">
+                <span class="pill-icon">▣</span> My Orders
             </a>
             <a href="#cart" class="pill-link cart-link">
                 <span class="pill-icon cart-icon">
@@ -88,17 +92,25 @@
         </div>
     </div>
 
+    <div id="storeAnnouncement" class="store-announcement" hidden>
+        <span class="store-announcement-icon">
+            📢
+        </span>
+
+        <span id="storeAnnouncementText"></span>
+    </div>
+
     <div class="hero-flex-wrapper">
         <section id="home" class="hero">
             <div class="hero-inner">
 
                 <div class="hero-slider">
 
-                    <img src="img/Banner1.jpg" class="hero-slide active" alt="Hiro Store Banner 1">
+                    <img src="img/Banner1.webp" class="hero-slide active" alt="Hiro Store Banner 1" loading="eager" fetchpriority="high" decoding="async">
 
-                    <img src="img/Banner2.png" class="hero-slide" alt="Hiro Store Banner 2">
+                    <img src="img/Banner2.webp" class="hero-slide" alt="Hiro Store Banner 2" loading="lazy" decoding="async">
 
-                    <img src="img/Banner3.png" class="hero-slide" alt="Hiro Store Banner 3">
+                    <img src="img/Banner3.webp" class="hero-slide" alt="Hiro Store Banner 3" loading="lazy" decoding="async">
 
                     <div class="hero-dots">
                         <button class="hero-dot active" data-slide="0" aria-label="Show banner 1"></button>
@@ -119,24 +131,38 @@
 
         </section>
     </div>
-    <section class="bestsellers-section">
 
+    <section class="purchase-guide-section" id="how-it-works">
         <div class="diamond-heading">
-            <span class="diamond-eyebrow">🔥 BEST SELLERS</span>
-            <h2>Most Popular Packages</h2>
+            <span class="diamond-eyebrow">HOW IT WORKS</span>
+            <h2>Top Up in 4 Simple Steps</h2>
+            <p>Everything happens on Hiro Store — no need to message an agent before buying.</p>
         </div>
-
-        <div class="bestsellers-grid" id="bestSellersGrid">
-            <p class="bestsellers-loading">Loading...</p>
+        <div class="purchase-guide-grid">
+            <article class="purchase-guide-card"><span class="purchase-guide-number">1</span><strong>Choose a
+                    Package</strong>
+                <p>Select the diamond bundle you want.</p>
+            </article>
+            <article class="purchase-guide-card"><span class="purchase-guide-number">2</span><strong>Verify Your
+                    Account</strong>
+                <p>Enter your Player ID and Server ID, then confirm the account shown.</p>
+            </article>
+            <article class="purchase-guide-card"><span class="purchase-guide-number">3</span><strong>Pay
+                    Securely</strong>
+                <p>Complete payment through Paystack. Never pay twice for the same order.</p>
+            </article>
+            <article class="purchase-guide-card"><span class="purchase-guide-number">4</span><strong>Track
+                    Delivery</strong>
+                <p>Open My Orders anytime to see payment and delivery progress.</p>
+            </article>
         </div>
-
     </section>
 
     <section class="region-select-section" id="region-select">
         <div class="diamond-heading">
             <span class="diamond-eyebrow">CHOOSE YOUR REGION</span>
-            <h2>Mobile Legends Diamond Packages</h2>
-            <p>Select your region to see available packages.</p>
+            <h2>Choose Your Region</h2>
+            <p>Choose the region that matches your Mobile Legends account.</p>
         </div>
 
         <div class="region-grid">
@@ -194,10 +220,10 @@
         <div class="diamond-heading">
             <span class="diamond-eyebrow" id="diamondsEyebrow">⚡ FAST TOP-UP</span>
 
-            <h2 id="diamondsHeading">Mobile Legends Global Diamond Packages</h2>
+            <h2 id="diamondsHeading">Choose Your Diamond Package</h2>
 
             <p id="diamondsSubtext">
-                Choose your package and get your diamonds delivered fast.
+                Tap a package below to select it, then verify your game account.
             </p>
         </div>
 
@@ -650,8 +676,13 @@
     <div class="player-info">
         <input type="number" id="playerId" name="playerId" placeholder="Player ID" class="id-input">
         <input type="number" id="serverId" name="serverId" placeholder="Server ID" class="id-input">
-        <button type="button" class="verify-btn">Verify</button>
+        <button type="button" class="verify-btn">Verify Account</button>
     </div>
+    <details class="player-id-help">
+        <summary>Where do I find my Player ID and Server ID?</summary>
+        <p>Open Mobile Legends, tap your profile picture, and copy the Player ID and Server/Zone ID shown on your
+            profile. Verify the account name before adding the package to cart.</p>
+    </details>
     <div class="player-result">
         <span class="result-icon">👤</span>
         <div>
@@ -689,27 +720,6 @@
                         <strong>Fast Support</strong>
                         <span>Replies within 30 minutes on WhatsApp</span>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="how-it-works">
-            <h3>How It Works</h3>
-            <div class="steps">
-                <div class="step">
-                    <span class="step-number">1</span>
-                    <strong>Choose a package</strong>
-                    <span>Pick your diamond bundle</span>
-                </div>
-                <div class="step">
-                    <span class="step-number">2</span>
-                    <strong>Enter your details</strong>
-                    <span>Player ID and Server ID</span>
-                </div>
-                <div class="step">
-                    <span class="step-number">3</span>
-                    <strong>Get your diamonds</strong>
-                    <span>Delivered instantly after payment</span>
                 </div>
             </div>
         </div>
@@ -757,6 +767,36 @@
 
     </section>
 
+    <section class="customer-help-section" id="help">
+        <div class="diamond-heading">
+            <span class="diamond-eyebrow">NEED HELP?</span>
+            <h2>Quick Answers</h2>
+            <p>Check these before contacting support.</p>
+        </div>
+        <div class="customer-help-list">
+            <details>
+                <summary>Where can I see my order after paying?</summary>
+                <p>Open <a href="orders.html">My Orders</a>. Your order stays there even after you close the payment
+                    window.</p>
+            </details>
+            <details>
+                <summary>I paid but delivery is still processing. Should I pay again?</summary>
+                <p>No. Do not pay again. Check My Orders for the latest delivery status. If there is a delivery issue,
+                    contact support with your Hiro Order ID.</p>
+            </details>
+            <details>
+                <summary>How long does delivery take?</summary>
+                <p>Most successful orders are delivered within minutes after Paystack confirms payment. Some supplier or
+                    network delays can take longer.</p>
+            </details>
+            <details>
+                <summary>What if I entered the wrong Player ID?</summary>
+                <p>Always use Verify Account and confirm the displayed account before paying. If you notice a mistake
+                    before payment, correct it first.</p>
+            </details>
+        </div>
+    </section>
+
     <section class="community-section">
 
         <div class="community-box">
@@ -799,10 +839,8 @@
                     <input type="email" id="username" name="username" placeholder="Email" autocomplete="email">
                 </label>
 
-                <label>
-                    <input type="password" id="password" name="password" placeholder="Password"
-                        autocomplete="current-password">
-                </label>
+                <label class="password-field"><input type="password" id="password" name="password" placeholder="Password"
+                        autocomplete="current-password"><button type="button" class="password-toggle" data-password-toggle="password" aria-label="Show login password" aria-controls="password" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span class="sr-only">Show password</span></button></label>
 
                 <p class="forgot-password-row">
                     <button type="button" class="forgot-password-btn">
@@ -840,14 +878,10 @@
                     <input type="tel" id="signupPhone" placeholder="Phone number" autocomplete="tel">
                 </label>
 
-                <label>
-                    <input type="password" id="signupPassword" placeholder="Password" autocomplete="new-password">
-                </label>
+                <label class="password-field"><input type="password" id="signupPassword" placeholder="Password" autocomplete="new-password"><button type="button" class="password-toggle" data-password-toggle="signupPassword" aria-label="Show signup password" aria-controls="signupPassword" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span class="sr-only">Show password</span></button></label>
 
-                <label>
-                    <input type="password" id="signupConfirmPassword" placeholder="Confirm password"
-                        autocomplete="new-password">
-                </label>
+                <label class="password-field"><input type="password" id="signupConfirmPassword" placeholder="Confirm password"
+                        autocomplete="new-password"><button type="button" class="password-toggle" data-password-toggle="signupConfirmPassword" aria-label="Show confirm password" aria-controls="signupConfirmPassword" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span class="sr-only">Show password</span></button></label>
 
                 <button type="button" class="create-account-btn">
                     Create Account
@@ -914,6 +948,26 @@
 
     </div>
 
+    <div id="orderConfirmationModal" class="checkout-modal" style="display: none;">
+        <div class="checkout-box order-confirmation-box">
+            <div class="order-confirmation-icon">✓</div>
+            <h2>Payment Confirmed</h2>
+            <p class="order-confirmation-copy">Your payment is confirmed and your top-up is being processed.</p>
+            <div class="order-confirmation-summary">
+                <div><span>Order</span><strong id="confirmedOrderId">—</strong></div>
+                <div><span>Payment</span><strong class="confirmation-paid">Paid ✓</strong></div>
+                <div><span>Delivery</span><strong id="confirmedDeliveryStatus">Processing</strong></div>
+            </div>
+            <p class="order-confirmation-note">You can safely close this page. Your order will remain available in My
+                Orders.</p>
+            <div class="order-confirmation-actions">
+                <a id="trackConfirmedOrderBtn" class="confirmation-primary-btn" href="orders.html">Track My Order</a>
+                <button type="button" id="continueShoppingBtn" class="confirmation-secondary-btn">Continue
+                    Shopping</button>
+            </div>
+        </div>
+    </div>
+
     <div id="complaintModal" class="checkout-modal" style="display: none;">
 
         <div class="checkout-box chat-box">
@@ -956,7 +1010,7 @@
 
     <script src="https://js.paystack.co/v2/inline.js"></script>
 
-    <script src="app.js" defer></script>
+    <script src="app.js?v=20260914-paystack-server-init1" defer></script>
 </body>
 
 </html>

@@ -15,7 +15,6 @@
   // retailPriceNgn value returned by /api/products.
   const FZR_EXCHANGE_RATE = 1400;
 
-  let PAYSTACK_PUBLIC_KEY = "";
   // Set window.HIRO_API_URL only when the API is hosted separately.
   // Same-origin is the safe production default; localhost must never be
   // used by a deployed storefront.
@@ -29,6 +28,7 @@
   let verifiedPlayer = null;
 
   window.currentUser = null;
+  window.hiroPaymentsEnabled = true;
 
 
   // =========================================================
@@ -215,32 +215,123 @@
   // FZR / PAYSTACK CONFIG
   // =========================================================
 
-  async function loadPaystackConfig() {
+  async function loadPublicStoreSettings() {
     try {
-      const response = await apiFetch(
-        `${API_BASE_URL}/api/config/paystack`
-      );
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message ||
-          "Unable to load Paystack configuration."
+      const response =
+        await fetch(
+          `${API_BASE_URL}/api/store/public-settings`,
+          {
+            credentials: "include",
+            headers: {
+              Accept: "application/json"
+            }
+          }
         );
+
+      const data =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        return;
       }
 
-      PAYSTACK_PUBLIC_KEY = data.publicKey;
+      /* -----------------------------
+         PAYMENTS
+      ----------------------------- */
 
-      console.log("Paystack configuration loaded.");
+      window.hiroPaymentsEnabled =
+        data.paymentsEnabled !== false;
+
+      syncCheckoutAvailability();
+
+
+      /* -----------------------------
+         ANNOUNCEMENT
+      ----------------------------- */
+
+      const announcement =
+        String(
+          data.announcement || ""
+        ).trim();
+
+      const banner =
+        document.getElementById(
+          "storeAnnouncement"
+        );
+
+      const text =
+        document.getElementById(
+          "storeAnnouncementText"
+        );
+
+      if (banner && text) {
+
+        if (announcement) {
+          text.textContent =
+            announcement;
+
+          banner.hidden = false;
+        } else {
+          text.textContent = "";
+          banner.hidden = true;
+        }
+      }
+
     } catch (error) {
       console.error(
-        "Could not load Paystack configuration:",
+        "Could not load public store settings:",
         error
       );
     }
   }
 
+  function syncCheckoutAvailability() {
+    const checkoutButton =
+      document.getElementById(
+        "checkoutBtn"
+      );
+
+    if (!checkoutButton) {
+      return;
+    }
+
+    if (
+      window.hiroPaymentsEnabled === false
+    ) {
+      checkoutButton.disabled = true;
+
+      checkoutButton.textContent =
+        "⚠ Payments Temporarily Unavailable";
+
+      checkoutButton.classList.add(
+        "checkout-disabled"
+      );
+
+      checkoutButton.setAttribute(
+        "aria-disabled",
+        "true"
+      );
+
+    } else {
+
+      checkoutButton.disabled = false;
+
+      checkoutButton.textContent =
+        "🔒 Secure Checkout";
+
+      checkoutButton.classList.remove(
+        "checkout-disabled"
+      );
+
+      checkoutButton.setAttribute(
+        "aria-disabled",
+        "false"
+      );
+    }
+  }
 
   function showDiamondsSkeleton() {
     const grid = document.querySelector(".diamond-grid");
@@ -272,8 +363,6 @@
 
       const data = await response.json();
 
-      console.log("FZR products response:", data);
-
       if (!data.success || !Array.isArray(data.products)) {
         throw new Error(
           data.message ||
@@ -296,10 +385,6 @@
 
             usdPrice: retailUsd,
 
-            supplierPriceUsd: Number(
-              product.supplierPriceUsd
-            ),
-
             // Keep your existing fixed/API price.
             price: Number(
               product.retailPriceNgn ||
@@ -312,16 +397,11 @@
         });
 
       console.log(
-        `FZR products loaded into frontend: ${packages.length}`
-      );
-
-      console.log(
         "Frontend FZR packages:",
         packages
       );
 
       renderFzrProductCards();
-      renderBestSellers(packages);
 
     } catch (error) {
       console.error(
@@ -403,35 +483,6 @@
 
     // Cards are dynamic, so bind them again.
     setupCardSelection();
-  }
-
-  function renderBestSellers(packages) {
-    const container = document.getElementById("bestSellersGrid");
-    if (!container) return;
-
-    const featuredKeywords = ["156", "weekly pass", "234", "625", "1860"];
-
-    const featured = packages.filter(function (pkg) {
-      const title = pkg.title.toLowerCase();
-      return featuredKeywords.some(function (keyword) {
-        return title.includes(keyword.toLowerCase());
-      });
-    });
-
-    if (!featured.length) {
-      container.innerHTML = "<p>No featured packages available right now.</p>";
-      return;
-    }
-
-    container.innerHTML = featured.map(function (pkg) {
-      return `
-          <div class="bestseller-card">
-            <span class="bestseller-badge">🔥 BEST SELLER</span>
-            <strong>${escapeHTML(pkg.title)}</strong>
-            <span class="bestseller-price">${formatCurrency(pkg.price)}</span>
-          </div>
-        `;
-    }).join("");
   }
 
   // =========================================================
@@ -833,6 +884,8 @@
     cartContainer.appendChild(summary);
 
     updateCartCountUI();
+
+    syncCheckoutAvailability();
   }
 
 
@@ -2977,6 +3030,16 @@
   // =========================================================
 
   function openCheckout() {
+    if (
+      window.hiroPaymentsEnabled === false
+    ) {
+      showToast(
+        "Payments are temporarily unavailable. Please try again later.",
+        "warning"
+      );
+
+      return;
+    }
     if (!window.currentUser) {
       showToast(
         "Please log in before proceeding to payment.",
@@ -3040,6 +3103,32 @@
       modal.style.display =
         "none";
     }
+  }
+
+
+  function showOrderConfirmation(order) {
+    const modal = document.getElementById("orderConfirmationModal");
+    if (!modal || !order) return;
+    const orderId = String(order.orderId || "").trim();
+    const itemStatuses = Array.isArray(order.items)
+      ? order.items.map(item => String(item.fulfillmentStatus || "Pending"))
+      : [];
+    let deliveryStatus = "Processing";
+    if (itemStatuses.length && itemStatuses.every(status => status === "Completed")) deliveryStatus = "Completed ✓";
+    else if (itemStatuses.some(status => status === "Failed")) deliveryStatus = "Needs Attention";
+    else if (itemStatuses.length && itemStatuses.every(status => status === "Pending")) deliveryStatus = "Pending";
+    const orderIdElement = document.getElementById("confirmedOrderId");
+    const deliveryElement = document.getElementById("confirmedDeliveryStatus");
+    const trackButton = document.getElementById("trackConfirmedOrderBtn");
+    if (orderIdElement) orderIdElement.textContent = orderId || "—";
+    if (deliveryElement) deliveryElement.textContent = deliveryStatus;
+    if (trackButton) trackButton.href = orderId ? `orders.html?order=${encodeURIComponent(orderId)}` : "orders.html";
+    modal.style.display = "flex";
+  }
+
+  function closeOrderConfirmation() {
+    const modal = document.getElementById("orderConfirmationModal");
+    if (modal) modal.style.display = "none";
   }
 
   /* ---------------------------------------------------------
@@ -3191,40 +3280,42 @@
   // PAYSTACK
   // =========================================================
 
-  function payWithPaystack() {
+  let checkoutInProgress = false;
+
+  async function payWithPaystack() {
+    if (checkoutInProgress) {
+      showToast(
+        "Checkout is already being prepared.",
+        "warning"
+      );
+      return;
+    }
+
     if (!window.currentUser) {
       showToast(
         "Please log in before making a payment.",
         "warning"
       );
-
       return;
     }
 
     const emailInput =
-      document.getElementById(
-        "checkoutEmail"
-      );
+      document.getElementById("checkoutEmail");
 
     const phoneInput =
-      document.getElementById(
-        "checkoutPhone"
-      );
+      document.getElementById("checkoutPhone");
 
     const email =
-      emailInput?.value?.trim() ||
-      "";
+      emailInput?.value?.trim() || "";
 
     const phone =
-      phoneInput?.value?.trim() ||
-      "";
+      phoneInput?.value?.trim() || "";
 
     if (!email) {
       showToast(
         "Please enter your email.",
         "error"
       );
-
       return;
     }
 
@@ -3233,25 +3324,6 @@
         "Your cart is empty.",
         "error"
       );
-
-      return;
-    }
-
-    const total =
-      cart.reduce(function (sum, item) {
-        return (
-          sum +
-          Number(item.price || 0) *
-          Number(item.qty || 0)
-        );
-      }, 0);
-
-    if (total <= 0) {
-      showToast(
-        "Invalid payment amount.",
-        "error"
-      );
-
       return;
     }
 
@@ -3259,198 +3331,251 @@
       typeof PaystackPop ===
       "undefined"
     ) {
-      console.error(
-        "PaystackPop is not loaded."
-      );
-
       showToast(
         "Payment system failed to load. Please refresh.",
         "error"
       );
-
       return;
     }
 
-    if (!PAYSTACK_PUBLIC_KEY) {
-      showToast(
-        "Payment configuration is unavailable. Please refresh.",
-        "error"
+    checkoutInProgress = true;
+
+    try {
+      /*
+       * STEP 1:
+       * Create the order BEFORE Paystack.
+       *
+       * The server calculates the real prices
+       * from the products table.
+       */
+      const checkoutResponse =
+        await apiFetch(
+          `${API_BASE_URL}/api/checkout/create`,
+          {
+            method: "POST",
+
+            credentials: "include",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Accept:
+                "application/json"
+            },
+
+            body: JSON.stringify({
+              email,
+              phone,
+
+              items: cart.map(
+                function (item) {
+                  return {
+                    offerId:
+                      item.id,
+
+                    categoryId:
+                      item.categoryId,
+
+                    qty:
+                      item.qty,
+
+                    playerId:
+                      item.playerId,
+
+                    serverId:
+                      item.serverId
+                  };
+                }
+              )
+            })
+          }
+        );
+
+      const checkoutData =
+        await checkoutResponse.json();
+
+      if (
+        !checkoutResponse.ok ||
+        !checkoutData.success ||
+        !checkoutData.order
+      ) {
+        throw new Error(
+          checkoutData.message ||
+          "Unable to prepare checkout."
+        );
+      }
+
+      const pendingOrder =
+        checkoutData.order;
+
+      const accessCode =
+        String(
+          checkoutData.accessCode ||
+          ""
+        ).trim();
+
+      if (!accessCode) {
+        throw new Error(
+          "Payment initialization is unavailable."
+        );
+      }
+
+      console.log(
+        "Pending order created:",
+        pendingOrder.orderId
       );
 
-      return;
-    }
+      /*
+       * STEP 2:
+       * The server already initialized Paystack with
+       * the exact HIRO-PAY reference stored in SQLite.
+       * The browser can only resume that transaction;
+       * it can no longer invent a standalone T... reference.
+       */
+      const paystack =
+        new PaystackPop();
 
-    const paystack =
-      new PaystackPop();
+      paystack.resumeTransaction(
+        accessCode,
+        {
+          onSuccess:
+            async function (transaction) {
 
-    paystack.newTransaction({
-      key:
-        PAYSTACK_PUBLIC_KEY,
-
-      email:
-        email,
-
-      amount:
-        Math.round(
-          total * 100
-        ),
-
-      currency:
-        "NGN",
-
-      metadata: {
-        phone:
-          phone,
-
-        player_id:
-          cart[0]?.playerId ||
-          "",
-
-        server_id:
-          cart[0]?.serverId ||
-          ""
-      },
-
-      onSuccess:
-        async function (transaction) {
-          console.log(
-            "Paystack payment successful."
-          );
-
-          console.log(
-            "Reference:",
-            transaction.reference
-          );
-
-          showToast(
-            "Payment received. Verifying...",
-            "success"
-          );
-
-          try {
-            const response =
-              await apiFetch(
-                `${API_BASE_URL}/verify-payment`,
-                {
-                  method: "POST",
-
-                  credentials:
-                    "include",
-
-                  headers: {
-                    "Content-Type":
-                      "application/json",
-
-                    Accept:
-                      "application/json"
-                  },
-
-                  body:
-                    JSON.stringify({
-                      reference:
-                        transaction.reference,
-
-                      items:
-                        cart.map(
-                          function (item) {
-                            return {
-                              offerId:
-                                item.id,
-
-                              categoryId:
-                                item.categoryId,
-
-                              qty:
-                                item.qty,
-
-                              playerId:
-                                item.playerId,
-
-                              serverId:
-                                item.serverId
-                            };
-                          }
-                        )
-                    })
-                }
+              console.log(
+                "Paystack payment successful."
               );
 
-            const data =
-              await response.json();
-
-            console.log(
-              "Verification response:",
-              data
-            );
-
-            if (
-              !response.ok ||
-              !data.success
-            ) {
               showToast(
-                "Payment could not be verified.",
+                "Payment received. Verifying...",
+                "success"
+              );
+
+              try {
+                const response =
+                  await apiFetch(
+                    `${API_BASE_URL}/verify-payment`,
+                    {
+                      method: "POST",
+
+                      credentials:
+                        "include",
+
+                      headers: {
+                        "Content-Type":
+                          "application/json",
+
+                        Accept:
+                          "application/json"
+                      },
+
+                      body:
+                        JSON.stringify({
+                          reference:
+                            pendingOrder.reference
+                        })
+                    }
+                  );
+
+                const data =
+                  await response.json();
+
+                if (
+                  !response.ok ||
+                  !data.success
+                ) {
+                  showToast(
+                    "Payment received. Your order is being processed. Do not pay again.",
+                    "warning"
+                  );
+
+                  return;
+                }
+
+                showToast(
+                  "Payment Verified ✅",
+                  "success"
+                );
+
+                await renderOrderHistory();
+
+                closeCheckout();
+                showOrderConfirmation(data.order);
+
+                cart = [];
+
+                saveCart();
+
+                renderCart();
+
+              } catch (error) {
+
+                console.error(
+                  "Verification request failed:",
+                  error
+                );
+
+                showToast(
+                  "Payment received. Your order is being confirmed. Do not pay again.",
+                  "warning"
+                );
+              } finally {
+                checkoutInProgress =
+                  false;
+              }
+            },
+
+          onCancel:
+            function () {
+
+              console.log(
+                "Paystack payment cancelled."
+              );
+
+              checkoutInProgress =
+                false;
+
+              showToast(
+                "Payment cancelled.",
+                "warning"
+              );
+            },
+
+          onError:
+            function (error) {
+
+              console.error(
+                "Paystack popup error:",
+                error
+              );
+
+              checkoutInProgress =
+                false;
+
+              showToast(
+                "Unable to load payment. Please try again.",
                 "error"
               );
-
-              return;
             }
-
-            showToast(
-              "Payment Verified ✅",
-              "success"
-            );
-
-            console.log(
-              "Verified payment:",
-              data.payment
-            );
-
-            console.log(
-              "Saved order:",
-              data.order
-            );
-
-            await renderOrderHistory();
-
-            closeCheckout();
-
-            /*
-             * Keep your existing cart behaviour if you
-             * want the cart cleared after successful payment.
-             */
-            cart = [];
-
-            saveCart();
-
-            renderCart();
-
-          } catch (error) {
-            console.error(
-              "Verification request failed:",
-              error
-            );
-
-            showToast(
-              "Payment completed, but verification failed. Contact support.",
-              "error"
-            );
-          }
-        },
-
-      onCancel:
-        function () {
-          console.log(
-            "Paystack payment cancelled."
-          );
-
-          showToast(
-            "Payment cancelled.",
-            "warning"
-          );
         }
-    });
-  }
+      );
 
+    } catch (error) {
+
+      checkoutInProgress = false;
+
+      console.error(
+        "Checkout preparation failed:",
+        error
+      );
+
+      showToast(
+        error.message ||
+        "Unable to start checkout.",
+        "error"
+      );
+    }
+  }
 
   // =========================================================
   // ORDER HISTORY
@@ -3900,10 +4025,10 @@
     );
 
     /*
-     * Payment/product configuration.
+     * Product configuration.
+     * Paystack public key is only returned after the server
+     * creates a pending order for the current checkout.
      */
-    await loadPaystackConfig();
-
     await loadFzrProducts();
 
     /*
@@ -3998,8 +4123,32 @@
 
       setupHeroSlider();
 
+      loadPublicStoreSettings();
+
       init();
     }
   );
 
+
+
+  document.getElementById("continueShoppingBtn")?.addEventListener("click", function () {
+    closeOrderConfirmation();
+    document.getElementById("diamonds")?.scrollIntoView({ behavior: "smooth" });
+  });
+
+  document.getElementById("orderConfirmationModal")?.addEventListener("click", function (event) {
+    if (event.target.id === "orderConfirmationModal") closeOrderConfirmation();
+  });
 })();
+// Visibility controls do not change values, autocomplete or authentication handlers.
+document.addEventListener("click", function (event) {
+  const button = event.target.closest("[data-password-toggle]");
+  if (!button) return;
+  const input = document.getElementById(button.dataset.passwordToggle);
+  if (!input) return;
+  const visible = input.type === "password";
+  input.type = visible ? "text" : "password";
+  button.setAttribute("aria-pressed", String(visible));
+  button.setAttribute("aria-label", `${visible ? "Hide" : "Show"} ${input.placeholder.toLowerCase()}`);
+  button.querySelector(".sr-only").textContent = visible ? "Hide password" : "Show password";
+});

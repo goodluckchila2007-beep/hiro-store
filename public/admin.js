@@ -90,6 +90,12 @@
        STATE
     ===================================================== */
     let products = [];
+    const productDrafts = new Map();
+    let productCategory = "mobile_legends_global";
+    let profitCategory = "mobile_legends_global";
+    let profitPeriod = "7";
+    let profitRequest = 0;
+    let profitReport = null;
     let customers = [];
 
     let orders = [];
@@ -198,6 +204,17 @@
         return String(
             order?.status ??
             "Unknown"
+        );
+    }
+
+
+    function getPaymentStatus(order) {
+
+        return String(
+            order?.paymentStatus ??
+            order?.payment_status ??
+            order?.status ??
+            "Pending"
         );
     }
 
@@ -571,8 +588,6 @@
 
         renderCustomers();
 
-        renderAnalytics();
-
         updateNavigationCounts();
 
         updateMiniStats();
@@ -596,25 +611,25 @@
 
         const totalRevenue =
             Number(
-                analytics.totalRevenue ||
+                analytics.money?.totalRevenue ||
                 0
             );
 
         const profit =
             Number(
-                analytics.profit ||
+                analytics.money?.grossProfit ||
                 0
             );
 
         const todaySales =
             Number(
-                analytics.todaySales ||
+                analytics.money?.todayRevenue ||
                 0
             );
 
         const pendingOrders =
             Number(
-                analytics.pendingOrders ||
+                analytics.orders?.pending ||
                 0
             );
 
@@ -1774,6 +1789,14 @@
 
             allComplaints = data.conversations || [];
 
+            const complaintAlertBadge = document.getElementById("complaintAlertBadge");
+            const openComplaintCount = allComplaints.filter(c => c.status === "Open").length;
+            if (complaintAlertBadge) {
+                complaintAlertBadge.textContent = openComplaintCount > 99 ? "99+" : String(openComplaintCount);
+                complaintAlertBadge.hidden = openComplaintCount === 0;
+                complaintAlertBadge.title = `${openComplaintCount} open support conversation${openComplaintCount === 1 ? "" : "s"}`;
+            }
+
             if (!allComplaints.length) {
                 container.innerHTML = `
                     <div class="empty-state">
@@ -1914,6 +1937,11 @@
     });
 
 
+    // Keep the sidebar complaint badge current while the admin dashboard stays open.
+    setInterval(() => {
+        if (!document.hidden) loadSupportConversations();
+    }, 60000);
+
     /* =====================================================
            LOAD ADMIN SETTINGS
         ===================================================== */
@@ -1926,43 +1954,638 @@
             if (data.success) {
                 document.getElementById("maintenanceModeToggle").checked = data.maintenanceMode;
                 document.getElementById("usdNgnRateInput").value = data.usdNgnRate;
+                document
+                    .getElementById(
+                        "paymentsEnabledToggle"
+                    ).checked =
+                    Boolean(
+                        data.paymentsEnabled
+                    );
+
+                document
+                    .getElementById(
+                        "autoFulfillmentToggle"
+                    ).checked =
+                    Boolean(
+                        data.autoFulfillmentEnabled
+                    );
+
+                document
+                    .getElementById(
+                        "maxQuantityInput"
+                    ).value =
+                    Number(
+                        data.maxQuantity || 20
+                    );
+
+                document
+                    .getElementById(
+                        "pendingOrderExpiryInput"
+                    ).value =
+                    Number(
+                        data.pendingOrderExpiryHours ||
+                        24
+                    );
+
+                document
+                    .getElementById(
+                        "storeAnnouncementInput"
+                    ).value =
+                    data.storeAnnouncement || "";
+
+                document
+                    .getElementById(
+                        "notificationsEnabledToggle"
+                    ).checked =
+                    Boolean(
+                        data.notificationsEnabled
+                    );
+
+                document
+                    .getElementById(
+                        "notifyFailedFulfillmentToggle"
+                    ).checked =
+                    Boolean(
+                        data.notifyFailedFulfillment
+                    );
+
+                document
+                    .getElementById(
+                        "notifyNewComplaintToggle"
+                    ).checked =
+                    Boolean(
+                        data.notifyNewComplaint
+                    );
+
+                document
+                    .getElementById(
+                        "notifyPaymentErrorToggle"
+                    ).checked =
+                    Boolean(
+                        data.notifyPaymentError
+                    );
+
+                document
+                    .getElementById(
+                        "notifyPaidOrderToggle"
+                    ).checked =
+                    Boolean(
+                        data.notifyPaidOrder
+                    );
+
+                document
+                    .getElementById(
+                        "notificationEmailInput"
+                    ).value =
+                    data.notificationEmail || "";
+
+                window.hiroSettings =
+                    data;
             }
         } catch (error) {
             showToast("Unable to load settings.", "error");
         }
 
         loadSystemStatus();
+        renderStoreOperations();
+    }
+
+    function renderStoreOperations() {
+
+        const container =
+            document.getElementById(
+                "storeOperationsList"
+            );
+
+        if (!container) {
+            return;
+        }
+
+
+        const settings =
+            window.hiroSettings || {};
+
+        const analytics =
+            window.hiroAnalytics || {};
+
+        const orders =
+            analytics.orders || {};
+
+        const fulfillment =
+            analytics.fulfillment || {};
+
+
+        const paymentsEnabled =
+            settings.paymentsEnabled !== false;
+
+        const autoFulfillmentEnabled =
+            settings.autoFulfillmentEnabled !== false;
+
+        const exchangeRate =
+            Number(
+                settings.usdNgnRate || 0
+            );
+
+        const maxQuantity =
+            Number(
+                settings.maxQuantity || 0
+            );
+
+        const expiryHours =
+            Number(
+                settings.pendingOrderExpiryHours ||
+                0
+            );
+
+        const announcement =
+            String(
+                settings.storeAnnouncement ||
+                ""
+            ).trim();
+
+
+        const rows = [
+
+            {
+                label:
+                    "Payments",
+
+                value:
+                    paymentsEnabled
+                        ? "Enabled"
+                        : "Disabled",
+
+                state:
+                    paymentsEnabled
+                        ? "ok"
+                        : "warning"
+            },
+
+
+            {
+                label:
+                    "Automatic Fulfillment",
+
+                value:
+                    autoFulfillmentEnabled
+                        ? "Enabled"
+                        : "Disabled",
+
+                state:
+                    autoFulfillmentEnabled
+                        ? "ok"
+                        : "warning"
+            },
+
+
+            {
+                label:
+                    "Pending Checkouts",
+
+                value:
+                    String(
+                        Number(
+                            orders.pending || 0
+                        )
+                    ),
+
+                state:
+                    Number(
+                        orders.pending || 0
+                    ) > 5
+                        ? "warning"
+                        : "ok"
+            },
+
+
+            {
+                label:
+                    "Processing Fulfillments",
+
+                value:
+                    String(
+                        Number(
+                            fulfillment.processing ||
+                            0
+                        )
+                    ),
+
+                state:
+                    Number(
+                        fulfillment.processing ||
+                        0
+                    ) > 0
+                        ? "warning"
+                        : "ok"
+            },
+
+
+            {
+                label:
+                    "Failed Fulfillments",
+
+                value:
+                    String(
+                        Number(
+                            fulfillment.failed ||
+                            0
+                        )
+                    ),
+
+                state:
+                    Number(
+                        fulfillment.failed ||
+                        0
+                    ) > 0
+                        ? "bad"
+                        : "ok"
+            },
+
+
+            {
+                label:
+                    "USD → NGN Rate",
+
+                value:
+                    exchangeRate > 0
+                        ? `₦${exchangeRate.toLocaleString(
+                            "en-NG"
+                        )}`
+                        : "Not set",
+
+                state:
+                    exchangeRate > 0
+                        ? "ok"
+                        : "warning"
+            },
+
+
+            {
+                label:
+                    "Maximum Quantity",
+
+                value:
+                    maxQuantity > 0
+                        ? String(maxQuantity)
+                        : "Not set",
+
+                state:
+                    maxQuantity > 0
+                        ? "ok"
+                        : "warning"
+            },
+
+
+            {
+                label:
+                    "Pending Order Expiry",
+
+                value:
+                    expiryHours > 0
+                        ? `${expiryHours} hour${expiryHours === 1
+                            ? ""
+                            : "s"
+                        }`
+                        : "Not set",
+
+                state:
+                    expiryHours > 0
+                        ? "ok"
+                        : "warning"
+            },
+
+
+            {
+                label:
+                    "Store Announcement",
+
+                value:
+                    announcement
+                        ? "Active"
+                        : "None",
+
+                state:
+                    announcement
+                        ? "ok"
+                        : "neutral"
+            }
+
+        ];
+
+
+        container.innerHTML =
+            rows
+                .map(row => {
+
+                    let dotClass =
+                        "ok";
+
+                    if (
+                        row.state ===
+                        "bad"
+                    ) {
+                        dotClass =
+                            "bad";
+                    }
+
+                    else if (
+                        row.state ===
+                        "warning"
+                    ) {
+                        dotClass =
+                            "warning";
+                    }
+
+                    else if (
+                        row.state ===
+                        "neutral"
+                    ) {
+                        dotClass =
+                            "neutral";
+                    }
+
+
+                    return `
+                    <div class="status-row">
+
+                        <span>
+
+                            <span
+                                class="status-dot ${dotClass}"
+                            ></span>
+
+                            ${escapeHTML(
+                        row.label
+                    )}
+
+                        </span>
+
+                        <span>
+                            ${escapeHTML(
+                        row.value
+                    )}
+                        </span>
+
+                    </div>
+                `;
+                })
+                .join("");
     }
 
     async function loadSystemStatus() {
-        const container = document.getElementById("systemStatusList");
+        const container =
+            document.getElementById(
+                "systemStatusList"
+            );
+
         if (!container) return;
 
         try {
-            const response = await apiFetch(`${API_URL}/api/admin/system-status`, { credentials: "include" });
-            const data = await response.json();
+            const response =
+                await apiFetch(
+                    `${API_URL}/api/admin/system-status`,
+                    {
+                        credentials:
+                            "include"
+                    }
+                );
 
-            if (!data.success) {
-                container.innerHTML = `<p>Unable to load system status.</p>`;
+            const data =
+                await response.json();
+
+            if (
+                !response.ok ||
+                !data.success
+            ) {
+                container.innerHTML =
+                    `<p>Unable to load system status.</p>`;
+
                 return;
             }
 
-            const labels = {
-                database: "Database",
-                paystackConfigured: "Paystack",
-                fzrConfigured: "FZR Supplier API",
-                smtpConfigured: "Email (SMTP)"
-            };
+            const system =
+                data.system || {};
 
-            container.innerHTML = Object.entries(data.status).map(([key, ok]) => `
-                <div class="status-row">
-                    <span><span class="status-dot ${ok ? "ok" : "bad"}"></span>${labels[key] || key}</span>
-                    <span>${ok ? "OK" : "Not configured"}</span>
-                </div>
-            `).join("");
+            const paystackOk =
+                Boolean(
+                    system.paystack
+                        ?.configured
+                );
+
+            const fzrOk =
+                Boolean(
+                    system.fzr
+                        ?.configured
+                );
+
+            const smtpStatus =
+                system.smtp
+                    ?.status ||
+                "unknown";
+
+            const smtpOk =
+                smtpStatus ===
+                "ready";
+
+            const databaseOk =
+                system.database
+                    ?.status ===
+                "healthy";
+
+            const productionOk =
+                system.environment ===
+                "production";
+
+            let webhookText =
+                "Never received";
+
+            if (
+                system.lastPaystackWebhook
+            ) {
+                const date =
+                    new Date(
+                        system.lastPaystackWebhook
+                    );
+
+                webhookText =
+                    Number.isNaN(
+                        date.getTime()
+                    )
+                        ? system.lastPaystackWebhook
+                        : date.toLocaleString(
+                            "en-NG"
+                        );
+            }
+
+            const rows = [
+                {
+                    label:
+                        "Database",
+                    ok:
+                        databaseOk,
+                    value:
+                        databaseOk
+                            ? "Healthy"
+                            : "Error"
+                },
+
+                {
+                    label:
+                        "Paystack",
+                    ok:
+                        paystackOk,
+                    value:
+                        paystackOk
+                            ? "Configured"
+                            : "Missing"
+                },
+
+                {
+                    label:
+                        "FZR Supplier API",
+                    ok:
+                        fzrOk,
+                    value:
+                        fzrOk
+                            ? "Configured"
+                            : "Missing"
+                },
+
+                {
+                    label:
+                        "Email (SMTP)",
+                    ok:
+                        smtpOk,
+                    value:
+                        smtpOk
+                            ? "Ready"
+                            : smtpStatus ===
+                                "error"
+                                ? "Error"
+                                : "Checking"
+                },
+
+                {
+                    label:
+                        "Environment",
+                    ok:
+                        productionOk,
+                    value:
+                        productionOk
+                            ? "Production"
+                            : "Development"
+                }
+            ];
+
+            container.innerHTML =
+                rows
+                    .map(
+                        row => `
+                        <div class="status-row">
+
+                            <span>
+                                <span
+                                    class="status-dot ${row.ok
+                                ? "ok"
+                                : "bad"
+                            }"
+                                ></span>
+
+                                ${escapeHTML(
+                                row.label
+                            )}
+                            </span>
+
+                            <span>
+                                ${escapeHTML(
+                                row.value
+                            )}
+                            </span>
+
+                        </div>
+                    `
+                    )
+                    .join("")
+                +
+
+                `
+                    <div class="status-row">
+
+                        <span>
+                            <span
+                                class="status-dot ${system.lastPaystackWebhook
+                    ? "ok"
+                    : "bad"
+                }"
+                            ></span>
+
+                            Last Paystack Webhook
+                        </span>
+
+                        <span>
+                            ${escapeHTML(
+                    webhookText
+                )}
+                        </span>
+
+                    </div>
+                `;
 
         } catch (error) {
-            container.innerHTML = `<p>Network error loading system status.</p>`;
+
+            console.error(
+                "System status load failed:",
+                error
+            );
+
+            container.innerHTML =
+                `<p>Network error loading system status.</p>`;
+        }
+    }
+
+    function setSystemStatus(
+        id,
+        text,
+        state
+    ) {
+
+        const element =
+            document.getElementById(id);
+
+        if (!element) {
+            return;
+        }
+
+        element.textContent =
+            text;
+
+
+        element.classList.remove(
+            "status-good",
+            "status-warning",
+            "status-bad"
+        );
+
+
+        if (state === "good") {
+
+            element.classList.add(
+                "status-good"
+            );
+
+        } else if (
+            state === "bad"
+        ) {
+
+            element.classList.add(
+                "status-bad"
+            );
+
+        } else {
+
+            element.classList.add(
+                "status-warning"
+            );
         }
     }
 
@@ -1977,8 +2600,105 @@
                     credentials: "include",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        maintenanceMode: document.getElementById("maintenanceModeToggle").checked,
-                        usdNgnRate: Number(document.getElementById("usdNgnRateInput").value)
+
+                        maintenanceMode:
+                            document
+                                .getElementById(
+                                    "maintenanceModeToggle"
+                                )
+                                .checked,
+
+                        usdNgnRate:
+                            Number(
+                                document
+                                    .getElementById(
+                                        "usdNgnRateInput"
+                                    )
+                                    .value
+                            ),
+
+                        paymentsEnabled:
+                            document
+                                .getElementById(
+                                    "paymentsEnabledToggle"
+                                )
+                                .checked,
+
+                        autoFulfillmentEnabled:
+                            document
+                                .getElementById(
+                                    "autoFulfillmentToggle"
+                                )
+                                .checked,
+
+                        maxQuantity:
+                            Number(
+                                document
+                                    .getElementById(
+                                        "maxQuantityInput"
+                                    )
+                                    .value
+                            ),
+
+                        pendingOrderExpiryHours:
+                            Number(
+                                document
+                                    .getElementById(
+                                        "pendingOrderExpiryInput"
+                                    )
+                                    .value
+                            ),
+
+                        storeAnnouncement:
+                            document
+                                .getElementById(
+                                    "storeAnnouncementInput"
+                                )
+                                .value
+                                .trim(),
+
+                        notificationsEnabled:
+                            document
+                                .getElementById(
+                                    "notificationsEnabledToggle"
+                                )
+                                .checked,
+
+                        notifyFailedFulfillment:
+                            document
+                                .getElementById(
+                                    "notifyFailedFulfillmentToggle"
+                                )
+                                .checked,
+
+                        notifyNewComplaint:
+                            document
+                                .getElementById(
+                                    "notifyNewComplaintToggle"
+                                )
+                                .checked,
+
+                        notifyPaymentError:
+                            document
+                                .getElementById(
+                                    "notifyPaymentErrorToggle"
+                                )
+                                .checked,
+
+                        notifyPaidOrder:
+                            document
+                                .getElementById(
+                                    "notifyPaidOrderToggle"
+                                )
+                                .checked,
+
+                        notificationEmail:
+                            document
+                                .getElementById(
+                                    "notificationEmailInput"
+                                )
+                                .value
+                                .trim()
                     })
                 });
 
@@ -1991,6 +2711,7 @@
                 }
 
                 showToast("Settings saved.", "success");
+                await loadSettings();
                 btn.disabled = false;
 
             } catch (error) {
@@ -1998,6 +2719,22 @@
                 btn.disabled = false;
             }
         });
+
+    document
+        .getElementById(
+            "saveNotificationSettingsBtn"
+        )
+        ?.addEventListener(
+            "click",
+            () => {
+
+                document
+                    .getElementById(
+                        "saveSettingsBtn"
+                    )
+                    ?.click();
+            }
+        );
 
 
     /* =====================================================
@@ -2130,16 +2867,31 @@
         modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
     }
 
+    function formatNaira(value) {
+        return new Intl.NumberFormat(
+            "en-NG",
+            {
+                style: "currency",
+                currency: "NGN",
+                maximumFractionDigits: 0
+            }
+        ).format(
+            Number(value || 0)
+        );
+    }
+
+
     async function loadAnalytics() {
         try {
+
             const response =
                 await fetch(
                     `${API_URL}/api/admin/analytics`,
                     {
+                        method: "GET",
                         credentials: "include",
                         headers: {
-                            "Accept":
-                                "application/json"
+                            Accept: "application/json"
                         }
                     }
                 );
@@ -2157,165 +2909,469 @@
                 );
             }
 
-            window.hiroAnalytics =
-                data.analytics;
+            const analytics =
+                data.analytics || {};
 
-            renderAnalytics();
+            window.hiroAnalytics =
+                analytics;
+
+            const money =
+                analytics.money || {};
+
+            const orders =
+                analytics.orders || {};
+
+            const fulfillment =
+                analytics.fulfillment || {};
+
+            const customers =
+                analytics.customers || {};
+
+
+            /* MONEY */
+
+            setText(
+                "analyticsTotalRevenue",
+                formatNaira(
+                    money.totalRevenue
+                )
+            );
+
+            setText(
+                "analyticsGrossProfit",
+                formatNaira(
+                    money.grossProfit
+                )
+            );
+
+            setText(
+                "analyticsProfitMargin",
+                `${Number(
+                    money.profitMargin || 0
+                ).toFixed(1)}%`
+            );
+
+            setText(
+                "analyticsAov",
+                formatNaira(
+                    money.averageOrderValue
+                )
+            );
+
+            setText(
+                "analyticsTodayRevenue",
+                formatNaira(
+                    money.todayRevenue
+                )
+            );
+
+            setText(
+                "analyticsSevenDayRevenue",
+                formatNaira(
+                    money.sevenDayRevenue
+                )
+            );
+
+            setText(
+                "analyticsMonthRevenue",
+                formatNaira(
+                    money.monthRevenue
+                )
+            );
+
+            setText(
+                "analyticsSupplierCost",
+                formatNaira(
+                    money.supplierCost
+                )
+            );
+
+
+            /* ORDERS */
+
+            setText(
+                "analyticsOrdersTotal",
+                orders.total || 0
+            );
+
+            setText(
+                "analyticsOrdersPaid",
+                orders.paid || 0
+            );
+
+            setText(
+                "analyticsOrdersPending",
+                orders.pending || 0
+            );
+
+            setText(
+                "analyticsOrdersProcessing",
+                orders.processing || 0
+            );
+
+            setText(
+                "analyticsOrdersCompleted",
+                orders.completed || 0
+            );
+
+            setText(
+                "analyticsOrdersFailed",
+                orders.failed || 0
+            );
+
+            setText(
+                "analyticsOrdersCancelled",
+                orders.cancelled || 0
+            );
+
+            setText(
+                "analyticsOrdersRefunded",
+                orders.refunded || 0
+            );
+
+
+            /* FULFILLMENT */
+
+            setText(
+                "analyticsFulfillmentRate",
+                `${Number(
+                    fulfillment.successRate || 0
+                ).toFixed(1)}%`
+            );
+
+            setText(
+                "analyticsFulfillmentCompleted",
+                fulfillment.completed || 0
+            );
+
+            setText(
+                "analyticsFulfillmentProcessing",
+                fulfillment.processing || 0
+            );
+
+            setText(
+                "analyticsFulfillmentFailed",
+                fulfillment.failed || 0
+            );
+
+
+            /* CUSTOMERS */
+
+            setText(
+                "analyticsCustomersTotal",
+                customers.total || 0
+            );
+
+            setText(
+                "analyticsCustomersRepeat",
+                customers.repeat || 0
+            );
+
+            setText(
+                "analyticsCustomersNew",
+                customers.newThisMonth || 0
+            );
+
+            setText(
+                "analyticsRefundedValue",
+                formatNaira(
+                    money.refundedOrderValue
+                )
+            );
+
+
+            renderDailySales(
+                analytics.dailySales || []
+            );
+
+            renderTopPackages(
+                analytics.packages || []
+            );
+
+            renderTopCustomers(
+                analytics.topCustomers || []
+            );
+            renderDashboard();
+            renderStoreOperations();
+            await loadProfit();
 
         } catch (error) {
+
             console.error(
-                "Analytics error:",
+                "Analytics load failed:",
                 error
             );
         }
     }
 
 
-    /* =====================================================
-       ANALYTICS
-    ===================================================== */
+    const profitCurrency = value => new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 2 }).format(Number(value || 0));
 
-    function renderAnalytics() {
-
-        const revenue =
-            orders.reduce(
-                (sum, order) =>
-                    sum +
-                    getAmountCharged(order),
-                0
-            );
-
-
-        const totalOrders =
-            orders.length;
-
-
-        const completed =
-            orders.filter(
-                order =>
-                    normalizeStatus(
-                        getOrderStatus(order)
-                    ) === "completed"
-            ).length;
-
-
-        const processing =
-            orders.filter(
-                order =>
-                    normalizeStatus(
-                        getOrderStatus(order)
-                    ) === "processing"
-            ).length;
-
-
-        const revenueContainer =
-            $("#revenueAnalytics");
-
-
-        if (revenueContainer) {
-
-            revenueContainer.innerHTML = `
-
-                <div class="analytics-number">
-
-                    <span>
-                        Total Revenue
-                    </span>
-
-                    <strong>
-                        ${formatCurrency(
-                revenue
-            )}
-                    </strong>
-
-                </div>
-
-            `;
-        }
-
-
-        const orderContainer =
-            $("#orderAnalytics");
-
-
-        if (orderContainer) {
-
-            orderContainer.innerHTML = `
-
-                <div class="analytics-number-grid">
-
-                    <div>
-                        <span>
-                            Total
-                        </span>
-
-                        <strong>
-                            ${totalOrders}
-                        </strong>
-                    </div>
-
-
-                    <div>
-                        <span>
-                            Processing
-                        </span>
-
-                        <strong>
-                            ${processing}
-                        </strong>
-                    </div>
-
-
-                <div>
-                        <span>
-                            Completed
-                        </span>
-
-                        <strong>
-                            ${completed}
-                        </strong>
-                    </div>
-
-                </div>
-
-            `;
-        }
-
-        const packages = window.hiroAnalytics?.packages || [];
-        const breakdownContainer = $("#profitBreakdownTable");
-
-        if (breakdownContainer) {
-            if (!packages.length) {
-                breakdownContainer.innerHTML = `<p class="empty-state">No sales data yet.</p>`;
-            } else {
-                breakdownContainer.innerHTML = `
-                    <table class="profit-table">
-                        <thead>
-                            <tr>
-                                <th>Package</th>
-                                <th>Units Sold</th>
-                                <th>Sell Price</th>
-                                <th>Supplier Price</th>
-                                <th>Profit</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${packages.map(pkg => `
-                                <tr>
-                                    <td>${escapeHTML(pkg.title)}</td>
-                                    <td>${pkg.unitsSold}</td>
-                                    <td>${formatCurrency(pkg.sellPrice)}</td>
-                                    <td>${formatCurrency(pkg.supplierPrice)}</td>
-                                    <td class="${pkg.profit >= 0 ? "profit-positive" : "profit-negative"}">${formatCurrency(pkg.profit)}</td>
-                                </tr>
-                            `).join("")}
-                        </tbody>
-                    </table>
-                `;
-            }
+    async function loadProfit() {
+        const request = ++profitRequest;
+        setText("profitStatus", "Loading profit report…");
+        try {
+            const response = await apiFetch(`${API_URL}/api/admin/profit?period=${profitPeriod}`);
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || "Unable to load profit report.");
+            if (request !== profitRequest) return;
+            profitReport = data.profit;
+            renderProfit();
+        } catch (error) {
+            if (request !== profitRequest) return;
+            // Keep the last good report visibly marked as stale.
+            setText("profitStatus", `Refresh failed. ${profitReport ? "Previous report shown. " : ""}${error.message}`);
         }
     }
 
+    function renderProfit() {
+        if (!profitReport) return;
+        const report = profitReport;
+        document.querySelectorAll("[data-profit-period]").forEach(button => {
+            button.setAttribute("aria-pressed", String(button.dataset.profitPeriod === report.period));
+        });
+        setText("profitRevenue", profitCurrency(report.revenue));
+        setText("profitCost", profitCurrency(report.supplierCost));
+        setText("profitFees", `${profitCurrency(report.paystackFees)}${report.missingFees ? " recorded" : ""}`);
+        setText("profitNet", report.netProfit === null ? "Incomplete" : profitCurrency(report.netProfit));
+        setText("profitMargin", report.netMargin === null ? "Margin pending" : `${report.netMargin.toFixed(2)}% net margin`);
+        const notes = [`${report.orderCount} paid order(s).`];
+        if (report.missingFees) notes.push(`${report.missingFees} order(s) missing actual Paystack fees.`);
+        if (report.missingCosts) notes.push(`${report.missingCosts} order(s) missing supplier cost snapshots.`);
+        if (report.unsettledOrders) notes.push(`${report.unsettledOrders} order(s) awaiting complete delivery; supplier costs are purchase snapshots.`);
+        if (report.problemOrders) notes.push(`${report.problemOrders} order(s) need delivery review.`);
+        setText("profitStatus", notes.join(" "));
+        const recoverButton = $("#recoverFeesBtn");
+        if (recoverButton) recoverButton.hidden = !report.missingFees;
+        const container = $("#profitProducts");
+        if (!container) return;
+        const rows = report.products.filter(product => product.categoryId === profitCategory);
+        const pricing = report.pricing.find(item => item.categoryId === profitCategory);
+        const pricingNote = pricing?.lastSyncedAt ? `Last FZR refresh: ${new Date(pricing.lastSyncedAt).toLocaleString()}.` : "Supplier prices are saved starting values; live refresh not confirmed yet.";
+        container.innerHTML = categoryTabs("data-profit-category", profitCategory) +
+            `<p class="hiro-report-note">${escapeHTML(pricingNote)} ${escapeHTML(pricing?.warning || "")} USD rate: ${profitCurrency(report.exchangeRate)}.</p>` +
+            `<div class="hiro-table-scroll"><table class="hiro-table"><thead><tr><th scope="col">Product</th><th scope="col">FZR cost</th><th scope="col">Your price</th><th scope="col">Est. fee</th><th scope="col">Est. profit</th><th scope="col">Margin</th></tr></thead><tbody>${rows.map(product => {
+                const loss = product.expectedNetProfit < 0;
+                const low = product.expectedMargin < 10;
+                const tag = loss ? "Loss" : low ? "Low margin" : "";
+                return `<tr><th scope="row">${escapeHTML(product.title)} ${!product.available ? '<span class="hiro-muted">Unavailable</span>' : ''}</th>
+                <td>${profitCurrency(product.supplierPriceNgn)}<small class="hiro-muted">$${Number(product.supplierPriceUsd).toFixed(4)}${!product.supplierSyncedAt ? " · saved" : ""}</small></td>
+                <td>${profitCurrency(product.retailPriceNgn)}</td><td>${profitCurrency(product.estimatedPaystackFee)}</td>
+                <td class="${loss ? 'hiro-loss' : ''}">${profitCurrency(product.expectedNetProfit)}</td>
+                <td>${product.expectedMargin.toFixed(1)}% ${tag ? `<span class="hiro-margin-tag ${loss ? 'hiro-loss' : ''}">${tag}</span>` : ''}</td></tr>`;
+            }).join("") || '<tr><td colspan="6">No products in this region.</td></tr>'}</tbody></table></div>`;
+    }
+
+    document.addEventListener("click", async event => {
+        const period = event.target.closest("[data-profit-period]");
+        if (period) { profitPeriod = period.dataset.profitPeriod; await loadProfit(); return; }
+        const category = event.target.closest("[data-profit-category]");
+        if (category) { profitCategory = category.dataset.profitCategory; renderProfit(); return; }
+        const recovery = event.target.closest("#recoverFeesBtn");
+        if (!recovery || recovery.disabled) return;
+        recovery.disabled = true;
+        recovery.textContent = "Retrieving…";
+        try {
+            const response = await apiFetch(`${API_URL}/api/admin/paystack-fees/recover`, { method: "POST" });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || "Unable to retrieve fees.");
+            showToast(`${data.recovered} fee(s) recovered; ${data.unavailable} unavailable.`, "success");
+            await loadProfit();
+        } catch (error) { showToast(error.message, "error"); }
+        finally { recovery.disabled = false; recovery.textContent = "Retrieve missing fees (10 orders)"; }
+    });
+
+    function setText(id, value) {
+        const element =
+            document.getElementById(id);
+
+        if (element) {
+            element.textContent = value;
+        }
+    }
+
+
+    function renderDailySales(rows) {
+
+        const container =
+            document.getElementById(
+                "analyticsDailySales"
+            );
+
+        if (!container) return;
+
+        if (!rows.length) {
+            container.innerHTML =
+                `<p class="empty-state">
+        No sales in the last 7 days.
+      </p>`;
+
+            return;
+        }
+
+        const maxRevenue =
+            Math.max(
+                ...rows.map(
+                    row =>
+                        Number(
+                            row.revenue || 0
+                        )
+                ),
+                1
+            );
+
+        container.innerHTML =
+            rows.map(row => {
+
+                const revenue =
+                    Number(
+                        row.revenue || 0
+                    );
+
+                const width =
+                    Math.max(
+                        3,
+                        revenue /
+                        maxRevenue *
+                        100
+                    );
+
+                return `
+        <div class="analytics-bar-row">
+
+          <div>
+            ${escapeHTML(
+                    row.day
+                )}
+          </div>
+
+          <div class="analytics-bar-track">
+            <div
+              class="analytics-bar-fill"
+              style="width:${width}%"
+            ></div>
+          </div>
+
+          <div class="analytics-bar-value">
+            ${formatNaira(revenue)}
+            <small>
+              (${Number(
+                    row.orders || 0
+                )} orders)
+            </small>
+          </div>
+
+        </div>
+      `;
+            }).join("");
+    }
+
+
+    function renderTopPackages(packages) {
+
+        const container =
+            document.getElementById(
+                "analyticsTopPackages"
+            );
+
+        if (!container) return;
+
+        if (!packages.length) {
+            container.innerHTML =
+                "<p>No sales yet.</p>";
+            return;
+        }
+
+        container.innerHTML =
+            packages
+                .slice(0, 10)
+                .map(item => `
+        <div class="analytics-table-row">
+
+          <div class="analytics-table-main">
+            <strong>
+              ${escapeHTML(
+                    item.title
+                )}
+            </strong>
+
+            <small>
+              ${Number(
+                    item.unitsSold || 0
+                )} units
+              ·
+              ${Number(
+                    item.margin || 0
+                ).toFixed(1)}% margin
+            </small>
+          </div>
+
+          <div class="analytics-table-value">
+            ${formatNaira(
+                    item.profit
+                )}
+            <small>
+              profit
+            </small>
+          </div>
+
+        </div>
+      `)
+                .join("");
+    }
+
+
+    function renderTopCustomers(customers) {
+
+        const container =
+            document.getElementById(
+                "analyticsTopCustomers"
+            );
+
+        if (!container) return;
+
+        if (!customers.length) {
+            container.innerHTML =
+                "<p>No customer data yet.</p>";
+            return;
+        }
+
+        container.innerHTML =
+            customers
+                .map(customer => `
+        <div class="analytics-table-row">
+
+          <div class="analytics-table-main">
+            <strong>
+              ${escapeHTML(
+                    customer.name ||
+                    "Customer"
+                )}
+            </strong>
+
+            <small>
+              ${escapeHTML(
+                    customer.email ||
+                    ""
+                )}
+              ·
+              ${Number(
+                    customer.orderCount ||
+                    0
+                )} orders
+            </small>
+          </div>
+
+          <div class="analytics-table-value">
+            ${formatNaira(
+                    customer.totalSpending
+                )}
+          </div>
+
+        </div>
+      `)
+                .join("");
+    }
 
     /* =====================================================
        PAGE TITLES / SUBTITLES
@@ -2576,6 +3632,19 @@
         const items =
             getItems(order);
 
+        const paymentStatus =
+            normalizeStatus(
+                getPaymentStatus(order)
+            );
+
+        const hasConfirmedPayment =
+            Boolean(
+                order?.paidAt ||
+                order?.paid_at
+            ) &&
+            getAmountCharged(order) > 0 &&
+            !["refunded", "cancelled"].includes(paymentStatus);
+
 
         body.innerHTML = `
 
@@ -2740,8 +3809,28 @@
                     )}
                                             </span>
 
-                                            ${item?.fulfillmentStatus === "Failed"
-                            ? `<button type="button" class="btn-retry" data-retry-item="${item.id}" data-retry-order="${escapeHTML(order.orderId)}">Retry Delivery</button>`
+                                            ${hasConfirmedPayment && item?.fulfillmentStatus === "Pending"
+                            ? `<button type="button" class="admin-action-btn fulfill" data-fulfill-item="${item.id}" data-fulfill-order="${escapeHTML(order.orderId)}">Fulfill Now</button>`
+                            : ""
+                        }
+
+                                            ${hasConfirmedPayment && item?.fulfillmentStatus === "Processing" && item?.fzrOrderId
+                            ? `<button type="button" class="admin-action-btn check" data-check-item="${item.id}" data-check-order="${escapeHTML(order.orderId)}">Check FZR Status</button>`
+                            : ""
+                        }
+
+                                            ${hasConfirmedPayment && item?.fulfillmentStatus === "Failed"
+                            ? `<button type="button" class="admin-action-btn retry" data-retry-item="${item.id}" data-retry-order="${escapeHTML(order.orderId)}">Retry Delivery</button>`
+                            : ""
+                        }
+
+                                            ${item?.fulfillmentError
+                            ? `<small style="display:block;width:100%;color:#ffb4b4;margin-top:6px;">${escapeHTML(item.fulfillmentError)}</small>`
+                            : ""
+                        }
+
+                                            ${hasConfirmedPayment && item?.fulfillmentStatus === "Review Required" && !item?.fzrOrderId
+                            ? `<button type="button" class="admin-action-btn retry" data-confirm-no-fzr-item="${item.id}" data-confirm-no-fzr-order="${escapeHTML(order.orderId)}">I Checked FZR — No Order Exists</button>`
                             : ""
                         }
 
@@ -2810,44 +3899,42 @@
             return;
         }
 
-        const processingBtn =
-            $("#markProcessingBtn");
-
-        const completedBtn =
-            $("#markCompletedBtn");
+        const cancelBtn =
+            $("#cancelOrderBtn");
 
         const refundBtn =
             $("#markRefundedBtn");
 
-        const status =
+        const paymentStatus =
             normalizeStatus(
-                getOrderStatus(
+                getPaymentStatus(
                     selectedOrder
                 )
             );
 
-        if (processingBtn) {
-            processingBtn.style.display =
-                (status === "processing" ||
-                    status === "completed" ||
-                    status === "refunded")
-                    ? "none"
-                    : "inline-flex";
-        }
+        const hasConfirmedPayment =
+            Boolean(
+                selectedOrder.paidAt ||
+                selectedOrder.paid_at
+            ) &&
+            getAmountCharged(
+                selectedOrder
+            ) > 0;
 
-        if (completedBtn) {
-            completedBtn.style.display =
-                (status === "completed" ||
-                    status === "refunded")
-                    ? "none"
-                    : "inline-flex";
+        if (cancelBtn) {
+            cancelBtn.style.display =
+                !hasConfirmedPayment &&
+                    !["cancelled", "refunded"].includes(paymentStatus)
+                    ? "inline-flex"
+                    : "none";
         }
 
         if (refundBtn) {
             refundBtn.style.display =
-                status === "refunded"
-                    ? "none"
-                    : "inline-flex";
+                hasConfirmedPayment &&
+                    !["cancelled", "refunded"].includes(paymentStatus)
+                    ? "inline-flex"
+                    : "none";
         }
     }
 
@@ -2886,72 +3973,43 @@
     /* =====================================================
     RENDER PRODUCTS (basic)
  ===================================================== */
+    function categoryTabs(attribute, active) {
+        return `<div class="hiro-tabs" aria-label="Catalog region">${[
+            ["mobile_legends_global", "🌍 Global"], ["mobile_legends_philippines", "🇵🇭 Philippines"]
+        ].map(([id, label]) => `<button type="button" ${attribute}="${id}" aria-pressed="${id === active}">${label}</button>`).join("")}</div>`;
+    }
+
     function renderProducts() {
         const container = $("#adminProductsList");
         if (!container) return;
-
-        if (!products.length) {
-            container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">◇</div>
-                <h4>Product catalog</h4>
-                <p>Your products will appear here.</p>
-            </div>
-        `;
-            return;
-        }
-
-        const categoryLabels = {
-            mobile_legends_global: "🌍 Global",
-            mobile_legends_philippines: "🇵🇭 Philippines"
-        };
-
-        const grouped = {};
-        products.forEach(p => {
-            const cat = p.categoryId || "other";
-            if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push(p);
-        });
-
-        container.innerHTML = Object.keys(grouped).map(cat => `
-            <div class="product-category-group">
-                <h2 class="product-category-heading">${escapeHTML(categoryLabels[cat] || cat)}</h2>
-                <div class="product-category-grid">
-                    ${grouped[cat].map(p => `
-                        <div class="product-card" data-product-id="${p.id}">
-                            <h3>${escapeHTML(p.title || p.offerId || "Product")}</h3>
-
-                            <label class="product-edit-label">
-                                Retail Price (₦)
-                                <input
-                                    type="number"
-                                    class="product-price-input"
-                                    data-product-price="${p.id}"
-                                    value="${p.retailPriceNgn ?? 0}"
-                                    min="0"
-                                    step="1"
-                                >
-                            </label>
-
-                            <label class="product-available-label">
-                                <input
-                                    type="checkbox"
-                                    class="product-available-input"
-                                    data-product-available="${p.id}"
-                                    ${p.available ? "checked" : ""}
-                                >
-                                Available for purchase
-                            </label>
-
-                            <button type="button" class="btn-retry product-save-btn" data-product-save="${p.id}">
-                                Save Changes
-                            </button>
-                        </div>
-                    `).join("")}
-                </div>
-            </div>
-        `).join("");
+        const search = ($("#productSearch")?.value || "").trim().toLowerCase();
+        const rows = products.filter(product => product.categoryId === productCategory && String(product.title || product.offerId).toLowerCase().includes(search)).map(product => ({ ...product, ...productDrafts.get(String(product.id)) }));
+        container.innerHTML = categoryTabs("data-product-category", productCategory) +
+            `<div class="hiro-table-scroll"><table class="hiro-table"><thead><tr><th scope="col">Product</th><th scope="col">Your price (₦)</th><th scope="col">Available</th><th scope="col">Action</th></tr></thead><tbody>${rows.map(product => `
+                <tr data-product-id="${product.id}"><th scope="row">${escapeHTML(product.title || product.offerId)}</th>
+                <td><input type="number" class="product-price-input" data-product-price="${product.id}" value="${product.retailPriceNgn ?? 0}" min="0" step="1" aria-label="Selling price for ${escapeHTML(product.title)}"></td>
+                <td><label class="hiro-switch"><input type="checkbox" data-product-available="${product.id}" ${product.available ? "checked" : ""} aria-label="Availability for ${escapeHTML(product.title)}"><span aria-hidden="true"></span></label></td>
+                <td><button type="button" class="admin-secondary-btn product-save-btn" data-product-save="${product.id}" aria-label="Save ${escapeHTML(product.title)}">Save</button></td></tr>`).join("") || '<tr><td colspan="4">No products in this region.</td></tr>'}</tbody></table></div>`;
     }
+
+    document.addEventListener("input", event => {
+        if (event.target.id === "productSearch") { renderProducts(); return; }
+        const row = event.target.closest("[data-product-id]");
+        if (!row) return;
+        productDrafts.set(row.dataset.productId, {
+            retailPriceNgn: row.querySelector("[data-product-price]").value,
+            available: row.querySelector("[data-product-available]").checked
+        });
+        const button = row.querySelector("[data-product-save]");
+        if (!button.disabled) button.textContent = "Save";
+    });
+
+    document.addEventListener("click", event => {
+        const tab = event.target.closest("[data-product-category]");
+        if (!tab || tab.getAttribute("aria-pressed") === "true") return;
+        productCategory = tab.dataset.productCategory;
+        renderProducts();
+    });
 
     /* =====================================================
        UPDATE PRODUCT (price / availability)
@@ -2964,9 +4022,10 @@
         const availableInput = card.querySelector("[data-product-available]");
         const saveBtn = card.querySelector("[data-product-save]");
 
+        if (saveBtn.disabled) return;
         const retailPriceNgn = Number(priceInput.value);
 
-        if (!Number.isFinite(retailPriceNgn) || retailPriceNgn < 0) {
+        if (!priceInput.value.trim() || !Number.isFinite(retailPriceNgn) || retailPriceNgn < 0) {
             showToast("Enter a valid price.", "error");
             return;
         }
@@ -2998,12 +4057,20 @@
             }
 
             showToast("Product updated.", "success");
-            await loadProducts();
+            // Update only this row so unsaved edits to other products survive.
+            const product = products.find(item => String(item.id) === String(productId));
+            if (product) Object.assign(product, data.product);
+            productDrafts.delete(String(productId));
+            priceInput.value = data.product.retailPriceNgn;
+            availableInput.checked = Boolean(data.product.available);
+            saveBtn.disabled = false;
+            saveBtn.textContent = "Saved";
+            if (profitReport) loadProfit();
 
         } catch (error) {
             showToast(error.message || "Network error updating product.", "error");
             saveBtn.disabled = false;
-            saveBtn.textContent = "Save Changes";
+            saveBtn.textContent = "Save";
         }
     }
 
@@ -3292,6 +4359,22 @@
             if (customerRow) openCustomerOrdersModal(customerRow.dataset.customerEmail);
         });
 
+        document
+            .getElementById("refreshAnalyticsBtn")
+            ?.addEventListener(
+                "click",
+                loadAnalytics
+            );
+
+        document
+            .getElementById(
+                "refreshSystemStatusBtn"
+            )
+            ?.addEventListener(
+                "click",
+                loadSystemStatus
+            );
+
         /* ---------------------------------------------
            NAVIGATION
         --------------------------------------------- */
@@ -3337,7 +4420,6 @@
                     }
                 );
             });
-
 
         /* ---------------------------------------------
            REFRESH
@@ -3458,6 +4540,136 @@
 
 
         /* ---------------------------------------------
+           FULFILL PENDING ITEM
+        --------------------------------------------- */
+
+        document.addEventListener(
+            "click",
+            async event => {
+
+                const fulfillButton =
+                    event.target.closest(
+                        "[data-fulfill-item]"
+                    );
+
+                if (!fulfillButton) return;
+
+                fulfillButton.disabled = true;
+                fulfillButton.textContent = "Submitting...";
+
+                try {
+                    const response = await apiFetch(
+                        `${API_URL}/api/admin/orders/${fulfillButton.dataset.fulfillOrder}/items/${fulfillButton.dataset.fulfillItem}/fulfill`,
+                        { method: "POST", credentials: "include" }
+                    );
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || "Fulfillment failed.");
+                    }
+
+                    showToast(data.message, "success");
+                    await loadOrders(false);
+
+                    if (selectedOrder) {
+                        openOrderModal(selectedOrder.orderId);
+                    }
+
+                } catch (error) {
+                    showToast(error.message || "Unable to fulfill item.", "error");
+                    fulfillButton.disabled = false;
+                    fulfillButton.textContent = "Fulfill Now";
+                }
+            }
+        );
+
+
+        /* ---------------------------------------------
+           CHECK FZR STATUS
+        --------------------------------------------- */
+
+        document.addEventListener(
+            "click",
+            async event => {
+
+                const checkButton =
+                    event.target.closest(
+                        "[data-check-item]"
+                    );
+
+                if (!checkButton) return;
+
+                checkButton.disabled = true;
+                checkButton.textContent = "Checking...";
+
+                try {
+                    const response = await apiFetch(
+                        `${API_URL}/api/admin/orders/${checkButton.dataset.checkOrder}/items/${checkButton.dataset.checkItem}/check-status`,
+                        { method: "POST", credentials: "include" }
+                    );
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || "Unable to check FZR status.");
+                    }
+
+                    showToast(data.message, "success");
+                    await loadOrders(false);
+
+                    if (selectedOrder) {
+                        openOrderModal(selectedOrder.orderId);
+                    }
+
+                } catch (error) {
+                    showToast(error.message || "Unable to check FZR status.", "error");
+                    checkButton.disabled = false;
+                    checkButton.textContent = "Check FZR Status";
+                }
+            }
+        );
+
+
+        /* ---------------------------------------------
+           CONFIRM AMBIGUOUS FZR FAILURE IS SAFE TO RETRY
+        --------------------------------------------- */
+        document.addEventListener("click", async event => {
+            const button = event.target.closest("[data-confirm-no-fzr-item]");
+            if (!button) return;
+
+            const confirmed = window.confirm(
+                "Only continue if you checked FZR order history for this player/order and confirmed NO supplier order was created. This will enable Retry Delivery."
+            );
+            if (!confirmed) return;
+
+            button.disabled = true;
+            button.textContent = "Recording review...";
+
+            try {
+                const response = await apiFetch(
+                    `${API_URL}/api/admin/orders/${button.dataset.confirmNoFzrOrder}/items/${button.dataset.confirmNoFzrItem}/confirm-no-fzr-order`,
+                    {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ confirmed: true })
+                    }
+                );
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.message || "Could not record review.");
+
+                showToast(data.message, "success");
+                await loadOrders(false);
+                if (selectedOrder) openOrderModal(selectedOrder.orderId);
+            } catch (error) {
+                showToast(error.message || "Could not record FZR review.", "error");
+                button.disabled = false;
+                button.textContent = "I Checked FZR — No Order Exists";
+            }
+        });
+
+        /* ---------------------------------------------
            RETRY FAILED ITEM
         --------------------------------------------- */
 
@@ -3560,64 +4772,35 @@
 
 
         /* ---------------------------------------------
-           PROCESSING
+           CANCEL UNPAID ORDER
         --------------------------------------------- */
 
-        $("#markProcessingBtn")
+        $("#cancelOrderBtn")
             ?.addEventListener(
                 "click",
                 () => {
-
-                    if (!selectedOrder) {
-                        return;
-                    }
-
+                    if (!selectedOrder) return;
 
                     updateOrderStatus(
-                        getOrderId(
-                            selectedOrder
-                        ),
-                        "Processing"
+                        getOrderId(selectedOrder),
+                        "Cancelled"
                     );
                 }
             );
 
 
         /* ---------------------------------------------
-           COMPLETED
+           MARK REFUNDED
         --------------------------------------------- */
-
-        $("#markCompletedBtn")
-            ?.addEventListener(
-                "click",
-                () => {
-
-                    if (!selectedOrder) {
-                        return;
-                    }
-
-
-                    updateOrderStatus(
-                        getOrderId(
-                            selectedOrder
-                        ),
-                        "Completed"
-                    );
-                }
-            );
 
         $("#markRefundedBtn")
             ?.addEventListener(
                 "click",
                 () => {
-                    if (!selectedOrder) {
-                        return;
-                    }
+                    if (!selectedOrder) return;
 
                     updateOrderStatus(
-                        getOrderId(
-                            selectedOrder
-                        ),
+                        getOrderId(selectedOrder),
                         "Refunded"
                     );
                 }
@@ -3660,17 +4843,252 @@
     ) {
 
         const element =
+            document.getElementById(selector) ||
             $(selector);
-
 
         if (!element) {
             return;
         }
 
-
         element.textContent =
             value;
     }
+
+    async function loadUnmatchedPayments() {
+
+        const container =
+            document.getElementById(
+                "unmatchedPaymentsList"
+            );
+
+        if (!container) {
+            return;
+        }
+
+        try {
+
+            const response =
+                await apiFetch(
+                    `${API_URL}/api/admin/unmatched-payments`,
+                    {
+                        credentials:
+                            "include"
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (
+                !response.ok ||
+                !data.success
+            ) {
+                throw new Error(
+                    data.message ||
+                    "Unable to load payments."
+                );
+            }
+
+            const payments =
+                data.payments || [];
+
+            if (!payments.length) {
+
+                container.innerHTML = `
+                <div class="empty-state">
+                    <h4>
+                        No unmatched payments
+                    </h4>
+
+                    <p>
+                        Everything is reconciled.
+                    </p>
+                </div>
+            `;
+
+                return;
+            }
+
+            container.innerHTML =
+                payments.map(payment => `
+
+        <div class="status-row">
+
+            <div>
+
+                <strong>
+                    ${escapeHTML(
+                    payment.reference
+                )}
+                </strong>
+
+                <small>
+                    ${escapeHTML(
+                    payment.email ||
+                    "Unknown customer"
+                )}
+                    · Player:
+                    ${escapeHTML(
+                    payment.playerId ||
+                    "N/A"
+                )}
+                    · Server:
+                    ${escapeHTML(
+                    payment.serverId ||
+                    "N/A"
+                )}
+                </small>
+
+            </div>
+
+            <div>
+
+                <strong>
+                    ${formatCurrency(
+                    payment.amountNgn
+                )}
+                </strong>
+
+                <small>
+                    ${escapeHTML(
+                    payment.resolutionStatus
+                )}
+                </small>
+
+                ${payment.resolutionStatus ===
+                        "Unresolved"
+                        ? `
+                            <button
+                                type="button"
+                                class="admin-action-btn recover"
+                                data-recover-payment="${payment.id}"
+                            >
+                                Recover Payment
+                            </button>
+                        `
+                        : ""
+                    }
+
+            </div>
+
+        </div>
+
+    `).join("");
+
+        } catch (error) {
+
+            console.error(
+                "Unmatched payments load failed:",
+                error
+            );
+
+            container.innerHTML =
+                `<p>Unable to load unmatched payments.</p>`;
+        }
+    }
+
+    document.addEventListener(
+        "click",
+        async event => {
+
+            const button =
+                event.target.closest(
+                    "[data-recover-payment]"
+                );
+
+            if (!button) {
+                return;
+            }
+
+            const paymentId =
+                Number(
+                    button.dataset
+                        .recoverPayment
+                );
+
+            const orderId =
+                window.prompt(
+                    "Enter the Hiro Order ID to attach this payment to.\nExample: HIRO-20260912-80321F65"
+                );
+
+            if (!orderId) {
+                return;
+            }
+
+            const confirmed =
+                window.confirm(
+                    `Recover this successful payment into ${orderId}?\n\nThe server will verify amount, customer, payment state and fulfillment state before changing anything.`
+                );
+
+            if (!confirmed) {
+                return;
+            }
+
+            button.disabled = true;
+
+            try {
+                const response =
+                    await apiFetch(
+                        `${API_URL}/api/admin/unmatched-payments/${paymentId}/recover`,
+                        {
+                            method: "POST",
+                            credentials:
+                                "include",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body:
+                                JSON.stringify({
+                                    orderId:
+                                        orderId.trim()
+                                })
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if (
+                    !response.ok ||
+                    !data.success
+                ) {
+                    showToast(
+                        data.message ||
+                        "Unable to recover payment.",
+                        "error"
+                    );
+
+                    button.disabled =
+                        false;
+
+                    return;
+                }
+
+                showToast(
+                    data.message,
+                    "success"
+                );
+
+                await Promise.all([
+                    loadUnmatchedPayments(),
+                    loadOrders()
+                ]);
+
+            } catch (error) {
+
+                showToast(
+                    "Network error recovering payment.",
+                    "error"
+                );
+
+                button.disabled =
+                    false;
+            }
+        }
+    );
 
     /* =====================================================
        VERIFY ADMIN SESSION
@@ -3749,7 +5167,9 @@
             loadProducts(),
             loadAnalytics(),
             loadSupportConversations(),
-            loadSettings()
+            loadSettings(),
+            loadSystemStatus(),
+            loadUnmatchedPayments()
         ]);
     }
 

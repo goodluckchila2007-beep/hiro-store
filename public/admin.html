@@ -10,7 +10,7 @@
 
     <meta name="description" content="Hiro Store administration dashboard">
 
-    <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="admin.css?v=20260913-2">
 </head>
 
 <body>
@@ -176,6 +176,7 @@
                     <span class="nav-text">
                         Complaints
                     </span>
+                    <span class="complaint-alert-badge" id="complaintAlertBadge" hidden>0</span>
 
                 </button>
 
@@ -188,6 +189,14 @@
                         Analytics
                     </span>
 
+                </button>
+
+                <button class="nav-item" data-section="unmatched" type="button">
+                    <span class="nav-icon">⚠</span>
+
+                    <span class="nav-text">
+                        Unmatched Payments
+                    </span>
                 </button>
 
 
@@ -224,7 +233,7 @@
 
                 </div>
 
-                <a href="../index.html" class="back-store">
+                <a href="/" class="back-store">
 
                     <span>←</span>
 
@@ -1535,16 +1544,15 @@
                     </div>
 
 
-                    <button class="primary-action" id="addProductBtn" type="button">
-
-                        + Add Product
-
-                    </button>
+                    <span class="hiro-report-note">Selling price &amp; availability</span>
 
                 </div>
 
 
-                <div class="product-admin-grid" id="adminProductsList">
+                <label class="hiro-catalog-search" for="productSearch">Find a product
+                    <input id="productSearch" type="search" placeholder="Search product name…" autocomplete="off">
+                </label>
+                <div class="hiro-product-list" id="adminProductsList">
 
                     <div class="empty-state">
 
@@ -1724,103 +1732,60 @@
                  ANALYTICS SECTION
             ================================================== -->
 
-            <section class="admin-section" id="analyticsSection">
+            <section id="analyticsSection" class="admin-section">
+                <div class="section-header"><div><h2>Profit overview</h2><p class="section-subtitle">Paid sales, recorded supplier costs and actual payment fees.</p></div>
+                    <button id="refreshAnalyticsBtn" class="admin-secondary-btn" type="button">Refresh</button></div>
+                <div class="hiro-tabs" aria-label="Profit period">
+                    <button type="button" data-profit-period="7" aria-pressed="true">7 Days</button>
+                    <button type="button" data-profit-period="30" aria-pressed="false">30 Days</button>
+                    <button type="button" data-profit-period="all" aria-pressed="false">All Time</button>
+                </div>
+                <div class="analytics-grid hiro-profit-grid">
+                    <div class="analytics-card"><span class="analytics-label">Revenue</span><strong id="profitRevenue">—</strong></div>
+                    <div class="analytics-card"><span class="analytics-label">FZR cost</span><strong id="profitCost">—</strong></div>
+                    <div class="analytics-card"><span class="analytics-label">Paystack fees</span><strong id="profitFees">—</strong></div>
+                    <div class="analytics-card"><span class="analytics-label">Net profit</span><strong id="profitNet">—</strong><small id="profitMargin">—</small></div>
+                </div>
+                <p id="profitStatus" class="hiro-report-note" role="status">Loading profit report…</p>
+                <button id="recoverFeesBtn" type="button" class="admin-secondary-btn" hidden>Retrieve missing fees (10 orders)</button>
+                <div class="analytics-panel"><div class="analytics-panel-header"><h3>Current product profitability</h3></div>
+                    <p class="hiro-report-note">Estimated profit for one product per local payment. Edit selling prices and availability in Products.</p>
+                    <details class="hiro-projection-details"><summary>How estimates work</summary><p class="hiro-report-note">Local NGN fee estimate: 1.5% + ₦100 from ₦2,500, capped at ₦2,000. International fees, split arrangements and multi-item carts can differ. Historical reports above use actual recorded fees, never this estimate.</p></details>
+                    <div id="profitProducts"></div>
+                </div>
+            </section>
 
+            <section class="admin-section" id="unmatchedSection">
 
                 <div class="section-heading">
-
                     <div>
 
                         <span class="section-eyebrow">
-                            BUSINESS INTELLIGENCE
+                            PAYMENT RECONCILIATION
                         </span>
 
                         <h2>
-                            Analytics
+                            Unmatched Payments
                         </h2>
 
                         <p>
-                            Understand how your Hiro Store is performing.
+                            Successful Paystack payments that
+                            could not be matched to a Hiro order.
                         </p>
 
                     </div>
-
                 </div>
 
 
-                <div class="analytics-grid">
+                <div class="settings-block">
 
-                    <div class="analytics-card large" id="profitBreakdownCard">
-                        <div class="panel-header">
-                            <div>
-                                <h3>Profit by Package</h3>
-                                <p>Sell price vs supplier cost per package.</p>
-                            </div>
-                        </div>
-                        <div id="profitBreakdownTable"></div>
-                    </div>
-
-                    <div class="analytics-card large">
-
-                        <div class="panel-header">
-
-                            <div>
-
-                                <span class="panel-eyebrow">
-                                    REVENUE
-                                </span>
-
-                                <h3>
-                                    Revenue Performance
-                                </h3>
-
-                            </div>
-
-                        </div>
-
-                        <div class="analytics-placeholder" id="revenueAnalytics">
-
-                            <span>
-                                Revenue analytics will appear here.
-                            </span>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="analytics-card">
-
-                        <div class="panel-header">
-
-                            <div>
-
-                                <span class="panel-eyebrow">
-                                    ORDERS
-                                </span>
-
-                                <h3>
-                                    Order Performance
-                                </h3>
-
-                            </div>
-
-                        </div>
-
-                        <div class="analytics-placeholder" id="orderAnalytics">
-
-                            <span>
-                                Order analytics will appear here.
-                            </span>
-
-                        </div>
-
+                    <div id="unmatchedPaymentsList" class="status-list">
+                        <p>Loading...</p>
                     </div>
 
                 </div>
 
             </section>
-
 
             <!-- =================================================
                  SETTINGS SECTION
@@ -1874,6 +1839,77 @@
                             </div>
                             <input type="number" id="usdNgnRateInput" class="settings-input" min="1" step="1">
                         </div>
+                        <div class="settings-row">
+                            <div>
+                                <strong>Payments Enabled</strong>
+                                <p>
+                                    Turn off to temporarily block new checkouts
+                                    without enabling full maintenance mode.
+                                </p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="paymentsEnabledToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Automatic Fulfillment</strong>
+                                <p>
+                                    Controls whether paid orders are automatically
+                                    sent to FZR.
+                                </p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="autoFulfillmentToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Maximum Quantity</strong>
+                                <p>
+                                    Maximum units allowed for one package
+                                    during checkout.
+                                </p>
+                            </div>
+
+                            <input type="number" id="maxQuantityInput" class="settings-input" min="1" max="100"
+                                step="1">
+                        </div>
+
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Pending Order Expiry</strong>
+                                <p>
+                                    Hours before abandoned unpaid checkouts
+                                    are marked Cancelled.
+                                </p>
+                            </div>
+
+                            <input type="number" id="pendingOrderExpiryInput" class="settings-input" min="1" max="168"
+                                step="1">
+                        </div>
+
+
+                        <div class="settings-row settings-row-column">
+                            <div>
+                                <strong>Store Announcement</strong>
+                                <p>
+                                    Optional message shown to customers.
+                                </p>
+                            </div>
+
+                            <textarea id="storeAnnouncementInput" class="settings-textarea" maxlength="300" rows="3"
+                                placeholder="Example: Scheduled maintenance tonight at 11 PM."></textarea>
+                        </div>
 
                         <button type="button" id="saveSettingsBtn" class="btn-retry">
                             Save Settings
@@ -1888,6 +1924,106 @@
                         <div id="systemStatusList" class="status-list">
                             <p>Loading...</p>
                         </div>
+
+                    </div>
+
+                    <div class="settings-block">
+
+                        <h3>Store Operations</h3>
+
+                        <p class="settings-block-description">
+                            Live operational overview of checkout,
+                            fulfillment and store configuration.
+                        </p>
+
+                        <div id="storeOperationsList" class="status-list">
+                            <p>Loading...</p>
+                        </div>
+
+                    </div>
+
+                    <div class="settings-block">
+
+                        <h3>Notification Controls</h3>
+
+                        <p class="settings-block-description">
+                            Choose which operational alerts Hiro Store sends to the admin email.
+                        </p>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Email Notifications</strong>
+                                <p>Master switch for all admin alert emails.</p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notificationsEnabledToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Failed Fulfillment Alerts</strong>
+                                <p>Send an alert when FZR delivery fails.</p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notifyFailedFulfillmentToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>New Complaint Alerts</strong>
+                                <p>Notify the admin when a customer submits a complaint.</p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notifyNewComplaintToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Payment Error Alerts</strong>
+                                <p>Notify the admin about serious payment or webhook failures.</p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notifyPaymentErrorToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Paid Order Alerts</strong>
+                                <p>Send an email whenever a new order is successfully paid.</p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notifyPaidOrderToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row settings-row-column">
+                            <div>
+                                <strong>Notification Email</strong>
+                                <p>
+                                    Admin email address that should receive operational alerts.
+                                </p>
+                            </div>
+
+                            <input type="email" id="notificationEmailInput" class="settings-input"
+                                placeholder="admin@example.com">
+                        </div>
+                        <button type="button" id="saveNotificationSettingsBtn" class="btn-retry">
+                            Save Notification Settings
+                        </button>
 
                     </div>
 
@@ -1964,18 +2100,12 @@
                 </button>
 
 
-                <button class="modal-processing-btn" id="markProcessingBtn" type="button">
+                <button class="modal-cancel-btn" id="cancelOrderBtn" type="button">
 
-                    ◷ Mark Processing
-
-                </button>
-
-
-                <button class="modal-complete-btn" id="markCompletedBtn" type="button">
-
-                    ✓ Mark Completed
+                    ✕ Cancel Unpaid Order
 
                 </button>
+
 
                 <button class="modal-refund-btn" id="markRefundedBtn" type="button">
 
@@ -2002,7 +2132,7 @@
          JAVASCRIPT
     ====================================================== -->
 
-    <script src="admin.js" defer></script>
+    <script src="admin.js?v=20260913-2" defer></script>
 </body>
 
 </html>

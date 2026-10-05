@@ -63,7 +63,7 @@ async function loadProfile() {
         const data = await response.json();
 
         if (!data.success || !data.authenticated || !data.user) {
-            window.location.href = "index.html";
+            window.location.href = "/";
             return;
         }
 
@@ -278,7 +278,7 @@ document.getElementById("profileLogoutBtn")?.addEventListener("click", async () 
             method: "POST"
         });
     } catch (error) {}
-    window.location.href = "index.html";
+    window.location.href = "/";
 });
 
 document.addEventListener("DOMContentLoaded", loadProfile);

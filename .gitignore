@@ -15,3 +15,4 @@ hiro-sessions.db
 
 npm-debug.log*
 .DS_Store
+*.before-pending-order-fix
