@@ -4354,3 +4354,114 @@ input {
 .logout-btn:focus-visible, .login-btn[data-auth-state="logged-in"]:focus-visible, .mobile-logout-link:focus-visible { outline: 2px solid #fca5a5; outline-offset: 3px; }
 .logout-btn:disabled, .login-btn[data-auth-state="logged-in"]:disabled { opacity: .55; cursor: wait; }
 @media (prefers-reduced-motion: reduce) { .logout-btn, .login-btn[data-auth-state="logged-in"], .mobile-logout-link { transition: none; } }
+
+
+/* =========================================================
+   MOBILE APP NAVIGATION + ACTION SHEETS
+   Dedicated mobile UI. Desktop navigation remains unchanged.
+   ========================================================= */
+.mobile-bottom-nav,.mobile-action-sheet,.mobile-sheet-overlay{display:none}
+.mobile-sheet-overlay[hidden]{display:none!important}
+@media (max-width:700px){
+  :root{--mobile-nav-height:72px}
+  body{padding-bottom:calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 12px)}
+  .nav-wrapper{position:sticky!important;top:0!important;min-height:54px;padding:7px 12px!important;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(8,12,14,.94)!important;backdrop-filter:blur(14px)}
+  .nav-wrapper .mobile-menu-btn,.nav-wrapper #mobileMenu{display:none!important}
+  .nav-wrapper .brand-pill{padding:4px 6px!important;background:transparent!important;box-shadow:none!important}
+  .mobile-bottom-nav{position:fixed;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));left:0;right:0;bottom:0;z-index:100100;min-height:var(--mobile-nav-height);padding:7px 6px calc(7px + env(safe-area-inset-bottom));background:rgba(9,13,15,.97);border-top:1px solid rgba(255,255,255,.08);box-shadow:0 -10px 30px rgba(0,0,0,.35);backdrop-filter:blur(18px)}
+  .mobile-bottom-item{appearance:none;border:0;background:transparent;color:#819099;text-decoration:none;font:inherit;min-width:0;min-height:55px;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:600;letter-spacing:.01em;cursor:pointer;position:relative}
+  .mobile-bottom-item:focus-visible{outline:2px solid var(--teal,#2dd4bf);outline-offset:-2px;border-radius:10px}
+  .mobile-bottom-item.active,.mobile-bottom-item[aria-expanded="true"]{color:#ff6b35}
+  .mobile-bottom-icon{position:relative;display:grid;place-items:center;min-height:25px;font-size:22px;line-height:1}
+  .mobile-bottom-item[data-mobile-nav="more"] .mobile-bottom-icon{font-size:18px;font-weight:800;letter-spacing:2px}
+  .mobile-bottom-cart-icon{font-size:20px}
+  .mobile-cart-count{position:absolute;top:-5px;right:-10px;display:none;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;place-items:center;border-radius:999px;background:#ff6b35;color:#fff;font-size:9px;font-weight:800;border:2px solid #090d0f}
+  .mobile-cart-count.has-items{display:grid}
+  .mobile-sheet-overlay{display:block;position:fixed;inset:0;z-index:100110;background:rgba(0,0,0,.68);opacity:0;visibility:hidden;transition:opacity .22s ease,visibility .22s ease}
+  .mobile-sheet-overlay.is-open{opacity:1;visibility:visible}
+  .mobile-action-sheet{display:block;position:fixed;z-index:100120;left:0;right:0;bottom:0;max-height:min(84vh,720px);overflow-y:auto;padding:9px 18px calc(22px + env(safe-area-inset-bottom));border-radius:24px 24px 0 0;background:#101618;border:1px solid rgba(255,255,255,.08);box-shadow:0 -20px 55px rgba(0,0,0,.5);transform:translateY(105%);visibility:hidden;transition:transform .26s ease,visibility .26s ease}
+  .mobile-action-sheet.is-open{transform:translateY(0);visibility:visible}
+  .mobile-sheet-handle{width:42px;height:4px;margin:0 auto 14px;border-radius:999px;background:#445158}
+  .mobile-sheet-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+  .mobile-sheet-heading h2{margin:1px 0 3px;color:#fff;font-size:21px}.mobile-sheet-heading p{margin:0;color:#829198;font-size:12px;line-height:1.5}
+  .mobile-sheet-kicker{color:var(--teal,#2dd4bf)!important;text-transform:uppercase;letter-spacing:.09em;font-size:9px!important;font-weight:700}
+  .mobile-sheet-close{flex:0 0 38px;width:38px;height:38px;border:1px solid rgba(255,255,255,.08);border-radius:50%;background:#182023;color:#aebbc0;font-size:24px;line-height:1;cursor:pointer}
+  .mobile-more-links,.support-choice-list{display:grid;gap:9px}
+  .mobile-more-row,.support-choice{width:100%;box-sizing:border-box;display:grid;grid-template-columns:36px 1fr auto;align-items:center;gap:10px;min-height:58px;padding:11px 13px;border:1px solid rgba(255,255,255,.075);border-radius:14px;background:#151d20;color:#eaf2f4;text-align:left;text-decoration:none;font:inherit;cursor:pointer}
+  .mobile-more-row>span:first-child,.support-choice>span:first-child{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:rgba(45,212,191,.08);font-size:18px;color:var(--teal,#2dd4bf)}
+  .mobile-more-row strong,.mobile-more-row small,.support-choice strong,.support-choice small{display:block}.mobile-more-row strong,.support-choice strong{font-size:13px}.mobile-more-row small,.support-choice small{margin-top:2px;color:#7f9097;font-size:10px;font-weight:400}.mobile-more-row>b{color:#64747b;font-size:20px;font-weight:400}
+  .mobile-more-row.mobile-auth-action[data-auth-state="logged-in"]{margin-top:6px;border-color:rgba(248,113,113,.2);color:#fca5a5;background:rgba(248,113,113,.06)}
+  .mobile-more-row.mobile-auth-action[data-auth-state="logged-in"]>span:first-child{color:#fca5a5;background:rgba(248,113,113,.09)}
+  .support-choice{grid-template-columns:38px 1fr;border-color:rgba(255,255,255,.075)}
+  .support-choice.selected{border-color:#ff6b35;background:rgba(255,107,53,.08);box-shadow:0 0 0 1px rgba(255,107,53,.12)}
+  .support-order-control{margin-top:14px}.support-order-control label{display:block;margin:0 0 7px;color:#dce7ea;font-size:11px;font-weight:600}.support-order-control label span{color:#718188;font-weight:400}
+  .support-order-control input,.support-order-control select{width:100%;box-sizing:border-box;min-height:45px;padding:10px 12px;border:1px solid rgba(255,255,255,.1);border-radius:11px;background:#0c1214;color:#fff;font:inherit;font-size:12px;outline:none}.support-order-control select{margin-bottom:8px}.support-order-control input:focus,.support-order-control select:focus{border-color:var(--teal,#2dd4bf);box-shadow:0 0 0 2px rgba(45,212,191,.08)}
+  .support-whatsapp-btn{width:100%;min-height:48px;margin-top:16px;border:0;border-radius:12px;background:#25d366;color:#07150c;font:inherit;font-size:13px;font-weight:800;cursor:pointer}.support-whatsapp-btn:disabled{opacity:.38;cursor:not-allowed}
+  .support-whatsapp-note{text-align:center;margin:8px 0 0;color:#6f7e84;font-size:9px}
+  .orders-page{padding-bottom:calc(var(--mobile-nav-height) + 45px)!important}
+}
+@media (prefers-reduced-motion:reduce){.mobile-action-sheet,.mobile-sheet-overlay{transition:none}}
+
+/* =========================================================
+   DESKTOP HIRO SUPPORT DIALOG
+   Reuses the same support component as mobile. The More sheet
+   remains mobile-only; only Hiro Support is exposed on desktop.
+   ========================================================= */
+@media (min-width:701px){
+  .mobile-sheet-overlay.is-open{
+    display:block;
+    position:fixed;
+    inset:0;
+    z-index:100110;
+    background:rgba(0,0,0,.68);
+    opacity:1;
+    visibility:visible;
+  }
+  .support-action-sheet{
+    display:block;
+    position:fixed;
+    z-index:100120;
+    left:50%;
+    top:50%;
+    bottom:auto;
+    width:min(520px,calc(100vw - 40px));
+    max-height:min(82vh,720px);
+    overflow-y:auto;
+    box-sizing:border-box;
+    padding:22px;
+    border-radius:22px;
+    background:#101618;
+    border:1px solid rgba(255,255,255,.08);
+    box-shadow:0 24px 70px rgba(0,0,0,.55);
+    transform:translate(-50%,-46%) scale(.98);
+    opacity:0;
+    visibility:hidden;
+    transition:transform .2s ease,opacity .2s ease,visibility .2s ease;
+  }
+  .support-action-sheet.is-open{
+    transform:translate(-50%,-50%) scale(1);
+    opacity:1;
+    visibility:visible;
+  }
+  .support-action-sheet .mobile-sheet-handle{display:none}
+  .support-action-sheet .mobile-sheet-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+  .support-action-sheet .mobile-sheet-heading h2{margin:1px 0 3px;color:#fff;font-size:24px}
+  .support-action-sheet .mobile-sheet-heading p{margin:0;color:#829198;font-size:12px;line-height:1.5}
+  .support-action-sheet .mobile-sheet-kicker{color:var(--teal,#2dd4bf)!important;text-transform:uppercase;letter-spacing:.09em;font-size:9px!important;font-weight:700}
+  .support-action-sheet .mobile-sheet-close{flex:0 0 38px;width:38px;height:38px;border:1px solid rgba(255,255,255,.08);border-radius:50%;background:#182023;color:#aebbc0;font-size:24px;line-height:1;cursor:pointer}
+  .support-action-sheet .support-choice-list{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .support-action-sheet .support-choice{width:100%;box-sizing:border-box;display:grid;grid-template-columns:38px 1fr;align-items:center;gap:10px;min-height:64px;padding:11px 13px;border:1px solid rgba(255,255,255,.075);border-radius:14px;background:#151d20;color:#eaf2f4;text-align:left;font:inherit;cursor:pointer}
+  .support-action-sheet .support-choice>span:first-child{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:rgba(45,212,191,.08);font-size:18px;color:var(--teal,#2dd4bf)}
+  .support-action-sheet .support-choice strong,.support-action-sheet .support-choice small{display:block}
+  .support-action-sheet .support-choice strong{font-size:13px}
+  .support-action-sheet .support-choice small{margin-top:2px;color:#7f9097;font-size:10px;font-weight:400}
+  .support-action-sheet .support-choice.selected{border-color:#ff6b35;background:rgba(255,107,53,.08);box-shadow:0 0 0 1px rgba(255,107,53,.12)}
+  .support-action-sheet .support-order-control{margin-top:14px}
+  .support-action-sheet .support-order-control label{display:block;margin:0 0 7px;color:#dce7ea;font-size:11px;font-weight:600}
+  .support-action-sheet .support-order-control label span{color:#718188;font-weight:400}
+  .support-action-sheet .support-order-control input,.support-action-sheet .support-order-control select{width:100%;box-sizing:border-box;min-height:45px;padding:10px 12px;border:1px solid rgba(255,255,255,.1);border-radius:11px;background:#0c1214;color:#fff;font:inherit;font-size:12px;outline:none}
+  .support-action-sheet .support-order-control select{margin-bottom:8px}
+  .support-action-sheet .support-whatsapp-btn{width:100%;min-height:48px;margin-top:16px;border:0;border-radius:12px;background:#25d366;color:#07150c;font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+  .support-action-sheet .support-whatsapp-btn:disabled{opacity:.38;cursor:not-allowed}
+  .support-action-sheet .support-whatsapp-note{text-align:center;margin:8px 0 0;color:#6f7e84;font-size:9px}
+}

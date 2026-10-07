@@ -65,7 +65,7 @@
             <a href="#about" class="pill-link">
                 <span class="pill-icon"><img src="img/about.png" alt=""></span>About
             </a>
-            <a href="https://wa.me/2347057484714" target="_blank" rel="noopener noreferrer"
+            <a href="#support" data-open-hiro-support
                 class="pill-link mobile-contact-link">
 
                 <span class="pill-icon">
@@ -77,8 +77,8 @@
 
         <div class="action-group">
 
-            <a href="https://wa.me/2347057484714" target="_blank" rel="noopener noreferrer" class="contact-btn"
-                aria-label="Contact Hiro Store">
+            <a href="#support" data-open-hiro-support class="contact-btn"
+                aria-label="Open Hiro Store support">
 
                 <img src="img/headset.png" alt="Contact">
             </a>
@@ -91,6 +91,63 @@
 
         </div>
     </div>
+
+
+    <!-- Mobile app-style navigation (desktop navigation above remains unchanged) -->
+    <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+        <a href="/#home" class="mobile-bottom-item" data-mobile-nav="home">
+            <span class="mobile-bottom-icon" aria-hidden="true">⌂</span><span>Home</span>
+        </a>
+        <a href="/#cart" class="mobile-bottom-item" data-mobile-nav="cart">
+            <span class="mobile-bottom-icon mobile-bottom-cart-icon" aria-hidden="true">🛒<span class="mobile-cart-count" aria-label="Cart items">0</span></span><span>Cart</span>
+        </a>
+        <a href="/orders.html" class="mobile-bottom-item" data-mobile-nav="orders">
+            <span class="mobile-bottom-icon" aria-hidden="true">▣</span><span>Orders</span>
+        </a>
+        <button type="button" class="mobile-bottom-item" id="mobileSupportBtn" data-mobile-nav="support">
+            <span class="mobile-bottom-icon" aria-hidden="true">🎧</span><span>Support</span>
+        </button>
+        <button type="button" class="mobile-bottom-item" id="mobileMoreBtn" data-mobile-nav="more" aria-expanded="false" aria-controls="mobileMoreSheet">
+            <span class="mobile-bottom-icon" aria-hidden="true">•••</span><span>More</span>
+        </button>
+    </nav>
+
+    <div class="mobile-sheet-overlay" id="mobileSheetOverlay" hidden></div>
+
+    <section class="mobile-action-sheet" id="mobileMoreSheet" aria-hidden="true" aria-labelledby="mobileMoreTitle">
+        <div class="mobile-sheet-handle" aria-hidden="true"></div>
+        <div class="mobile-sheet-heading">
+            <div><p class="mobile-sheet-kicker">Hiro Store</p><h2 id="mobileMoreTitle">More</h2></div>
+            <button type="button" class="mobile-sheet-close" data-close-mobile-sheet aria-label="Close menu">×</button>
+        </div>
+        <div class="mobile-more-links">
+            <a href="/profile.html" class="mobile-more-row"><span aria-hidden="true">👤</span><span><strong>My Profile</strong><small>Account and support</small></span><b aria-hidden="true">›</b></a>
+            <a href="/#about" class="mobile-more-row"><span aria-hidden="true">ⓘ</span><span><strong>About Hiro Store</strong><small>Learn more about Hiro</small></span><b aria-hidden="true">›</b></a>
+            <button type="button" class="mobile-more-row mobile-auth-action" id="mobileAuthAction"><span aria-hidden="true">↪</span><span><strong>Login</strong><small>Access your Hiro account</small></span><b aria-hidden="true">›</b></button>
+        </div>
+    </section>
+
+    <section class="mobile-action-sheet support-action-sheet" id="mobileSupportSheet" aria-hidden="true" aria-labelledby="mobileSupportTitle">
+        <div class="mobile-sheet-handle" aria-hidden="true"></div>
+        <div class="mobile-sheet-heading">
+            <div><p class="mobile-sheet-kicker">We're here to help</p><h2 id="mobileSupportTitle">Hiro Support</h2><p>What do you need help with?</p></div>
+            <button type="button" class="mobile-sheet-close" data-close-mobile-sheet aria-label="Close support">×</button>
+        </div>
+        <div class="support-choice-list" role="radiogroup" aria-label="Support issue">
+            <button type="button" class="support-choice" role="radio" aria-checked="false" data-support-issue="Order not received"><span>📦</span><span><strong>Order not received</strong><small>My top-up hasn't arrived</small></span></button>
+            <button type="button" class="support-choice" role="radio" aria-checked="false" data-support-issue="Payment problem"><span>💳</span><span><strong>Payment problem</strong><small>Payment failed or I was charged</small></span></button>
+            <button type="button" class="support-choice" role="radio" aria-checked="false" data-support-issue="Wrong Player ID / Server"><span>🎮</span><span><strong>Wrong Player ID / Server</strong><small>I entered incorrect game details</small></span></button>
+            <button type="button" class="support-choice" role="radio" aria-checked="false" data-support-issue="Refund or failed order"><span>↩</span><span><strong>Refund or failed order</strong><small>I need help with a failed transaction</small></span></button>
+            <button type="button" class="support-choice" role="radio" aria-checked="false" data-support-issue="Something else"><span>💬</span><span><strong>Something else</strong><small>Talk to customer support</small></span></button>
+        </div>
+        <div class="support-order-control" id="mobileSupportOrderControl" hidden>
+            <label for="mobileSupportOrderId">Order ID <span>(optional)</span></label>
+            <select id="mobileSupportOrderSelect" hidden><option value="">Select an order</option></select>
+            <input id="mobileSupportOrderId" type="text" autocomplete="off" placeholder="e.g. HIRO-12345" maxlength="80">
+        </div>
+        <button type="button" class="support-whatsapp-btn" id="mobileSupportChatBtn" disabled>Chat with Support</button>
+        <p class="support-whatsapp-note">Opens WhatsApp with your issue details already filled in.</p>
+    </section>
 
     <div id="storeAnnouncement" class="store-announcement" hidden>
         <span class="store-announcement-icon">

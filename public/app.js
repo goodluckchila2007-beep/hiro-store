@@ -2019,6 +2019,10 @@
       }
     }
 
+    // Expose the existing login opener so the new mobile More menu can
+    // open authentication directly instead of relying on a hidden desktop button.
+    window.openHiroLogin = openLoginPopup;
+
     function closeLoginPopup() {
       if (!loginPopup) {
         return;
@@ -4013,9 +4017,10 @@
     await restoreLoginSession();
 
     /*
-     * Move the SAME button into mobile menu if needed.
+     * Mobile uses the dedicated bottom navigation. The desktop auth button
+     * stays in place and is reused by the mobile More sheet when logged out.
      */
-    setupMobileNavigation();
+    setupMobileAppNavigation();
 
     /*
      * Reapply state after moving button.
@@ -4139,6 +4144,136 @@
   document.getElementById("orderConfirmationModal")?.addEventListener("click", function (event) {
     if (event.target.id === "orderConfirmationModal") closeOrderConfirmation();
   });
+
+
+  // =========================================================
+  // MOBILE APP NAV + SUPPORT SHEET
+  // =========================================================
+  function setupMobileAppNavigation() {
+    const overlay = document.getElementById("mobileSheetOverlay");
+    const moreSheet = document.getElementById("mobileMoreSheet");
+    const supportSheet = document.getElementById("mobileSupportSheet");
+    const moreBtn = document.getElementById("mobileMoreBtn");
+    const supportBtn = document.getElementById("mobileSupportBtn");
+    const authAction = document.getElementById("mobileAuthAction");
+    const orderControl = document.getElementById("mobileSupportOrderControl");
+    const orderInput = document.getElementById("mobileSupportOrderId");
+    const orderSelect = document.getElementById("mobileSupportOrderSelect");
+    const chatBtn = document.getElementById("mobileSupportChatBtn");
+    if (!overlay || !moreSheet || !supportSheet) return;
+
+    let selectedIssue = "";
+    const orderIssues = new Set(["Order not received","Payment problem","Wrong Player ID / Server","Refund or failed order"]);
+
+    function syncAuthAction() {
+      if (!authAction) return;
+      const loggedIn = Boolean(window.currentUser);
+      authAction.dataset.authState = loggedIn ? "logged-in" : "logged-out";
+      const strong = authAction.querySelector("strong");
+      const small = authAction.querySelector("small");
+      if (strong) strong.textContent = loggedIn ? "Log out" : "Login";
+      if (small) small.textContent = loggedIn ? "Sign out of your Hiro account" : "Access your Hiro account";
+    }
+
+    function closeSheets() {
+      [moreSheet,supportSheet].forEach(sheet => { sheet.classList.remove("is-open"); sheet.setAttribute("aria-hidden","true"); });
+      overlay.classList.remove("is-open"); overlay.hidden = true;
+      moreBtn?.setAttribute("aria-expanded","false");
+      document.body.style.overflow = "";
+    }
+
+    function openSheet(sheet) {
+      closeSheets();
+      overlay.hidden = false;
+      requestAnimationFrame(() => overlay.classList.add("is-open"));
+      sheet.classList.add("is-open"); sheet.setAttribute("aria-hidden","false");
+      if (sheet === moreSheet) moreBtn?.setAttribute("aria-expanded","true");
+      document.body.style.overflow = "hidden";
+    }
+
+    async function loadSupportOrders() {
+      if (!window.currentUser || !orderSelect) return;
+      try {
+        const response = await apiFetch(`${API_BASE_URL}/orders`, { method:"GET", credentials:"include", headers:{Accept:"application/json"} });
+        const data = await response.json();
+        const orders = Array.isArray(data.orders) ? data.orders.slice(0,8) : [];
+        if (!response.ok || !data.success || !orders.length) return;
+        orderSelect.innerHTML = '<option value="">Select one of your recent orders</option>' + orders.map(order => {
+          const id = String(order.orderId || "").replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+          return `<option value="${id}">${id}</option>`;
+        }).join("");
+        orderSelect.hidden = false;
+      } catch (error) { console.warn("Could not load recent orders for support.", error); }
+    }
+
+    moreBtn?.addEventListener("click", () => { syncAuthAction(); openSheet(moreSheet); });
+
+    function openSupport(event) {
+      event?.preventDefault?.();
+      openSheet(supportSheet);
+      loadSupportOrders();
+    }
+
+    supportBtn?.addEventListener("click", openSupport);
+    document.querySelectorAll("[data-open-hiro-support]").forEach(link => {
+      if (link.dataset.supportBound === "true") return;
+      link.dataset.supportBound = "true";
+      link.addEventListener("click", openSupport);
+    });
+    overlay.addEventListener("click", closeSheets);
+    document.querySelectorAll("[data-close-mobile-sheet]").forEach(button => button.addEventListener("click", closeSheets));
+    document.addEventListener("keydown", event => { if (event.key === "Escape") closeSheets(); });
+
+    authAction?.addEventListener("click", async (event) => {
+      // Prevent this same click from reaching the legacy window-level
+      // "click outside login popup" handler after we open the popup.
+      // Without this, mobile Login opens and is immediately closed again.
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (window.currentUser) { authAction.disabled = true; try { await logoutUser(); } finally { authAction.disabled = false; syncAuthAction(); closeSheets(); } return; }
+      closeSheets();
+      // Open the real login flow directly. The desktop auth button is hidden on
+      // mobile, so using its synthetic click is unnecessarily fragile.
+      if (typeof window.openHiroLogin === "function") {
+        window.openHiroLogin();
+      } else {
+        console.error("Hiro login opener is unavailable.");
+        showToast("Unable to open login. Please refresh and try again.", "error");
+      }
+    });
+
+    document.querySelectorAll(".support-choice").forEach(button => button.addEventListener("click", () => {
+      document.querySelectorAll(".support-choice").forEach(item => { item.classList.remove("selected"); item.setAttribute("aria-checked","false"); });
+      button.classList.add("selected"); button.setAttribute("aria-checked","true");
+      selectedIssue = button.dataset.supportIssue || "";
+      if (orderControl) orderControl.hidden = !orderIssues.has(selectedIssue);
+      if (chatBtn) chatBtn.disabled = !selectedIssue;
+    }));
+
+    orderSelect?.addEventListener("change", () => { if (orderSelect.value && orderInput) orderInput.value = orderSelect.value; });
+    chatBtn?.addEventListener("click", () => {
+      if (!selectedIssue) return;
+      const orderId = orderIssues.has(selectedIssue) ? (orderInput?.value.trim() || "") : "";
+      let message = `Hi Hiro Store Support, I need help with: ${selectedIssue}.`;
+      if (orderId) message += `\n\nOrder ID: ${orderId}`;
+      message += "\n\nPlease assist me. Thank you.";
+      window.open(`https://wa.me/2347057484714?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    });
+
+    const homePath = window.location.pathname;
+    const active = homePath.includes("orders") ? "orders" : "home";
+    document.querySelector(`[data-mobile-nav="${active}"]`)?.classList.add("active");
+    syncAuthAction();
+
+    const desktopCount = document.getElementById("cartCount");
+    const mobileCount = document.querySelector(".mobile-cart-count");
+    if (desktopCount && mobileCount) {
+      const syncCount = () => { const value = desktopCount.textContent.trim() || "0"; mobileCount.textContent = value; mobileCount.classList.toggle("has-items", Number(value) > 0); };
+      syncCount(); new MutationObserver(syncCount).observe(desktopCount,{childList:true,characterData:true,subtree:true});
+    }
+  }
+
 })();
 // Visibility controls do not change values, autocomplete or authentication handlers.
 document.addEventListener("click", function (event) {

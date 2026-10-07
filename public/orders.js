@@ -238,4 +238,24 @@ mobileMenu
         );
     });
 
-document.addEventListener("DOMContentLoaded", checkLoginAndLoadOrders);
+
+
+function setupOrdersMobileAppNavigation() {
+    const overlay=document.getElementById("mobileSheetOverlay"), moreSheet=document.getElementById("mobileMoreSheet"), supportSheet=document.getElementById("mobileSupportSheet");
+    const moreBtn=document.getElementById("mobileMoreBtn"), supportBtn=document.getElementById("mobileSupportBtn"), authAction=document.getElementById("mobileAuthAction"), orderControl=document.getElementById("mobileSupportOrderControl"), orderInput=document.getElementById("mobileSupportOrderId"), orderSelect=document.getElementById("mobileSupportOrderSelect"), chatBtn=document.getElementById("mobileSupportChatBtn");
+    if(!overlay||!moreSheet||!supportSheet)return;
+    let selectedIssue=""; const orderIssues=new Set(["Order not received","Payment problem","Wrong Player ID / Server","Refund or failed order"]);
+    function closeSheets(){[moreSheet,supportSheet].forEach(s=>{s.classList.remove("is-open");s.setAttribute("aria-hidden","true")});overlay.classList.remove("is-open");overlay.hidden=true;moreBtn?.setAttribute("aria-expanded","false");document.body.style.overflow=""}
+    function openSheet(sheet){closeSheets();overlay.hidden=false;requestAnimationFrame(()=>overlay.classList.add("is-open"));sheet.classList.add("is-open");sheet.setAttribute("aria-hidden","false");if(sheet===moreSheet)moreBtn?.setAttribute("aria-expanded","true");document.body.style.overflow="hidden"}
+    moreBtn?.addEventListener("click",()=>openSheet(moreSheet)); supportBtn?.addEventListener("click",()=>openSheet(supportSheet)); overlay.addEventListener("click",closeSheets); document.querySelectorAll("[data-close-mobile-sheet]").forEach(b=>b.addEventListener("click",closeSheets)); document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheets()});
+    if(authAction){authAction.dataset.authState="logged-in";authAction.querySelector("strong").textContent="Log out";authAction.querySelector("small").textContent="Sign out of your Hiro account";authAction.addEventListener("click",logoutUser)}
+    document.querySelectorAll(".support-choice").forEach(button=>button.addEventListener("click",()=>{document.querySelectorAll(".support-choice").forEach(i=>{i.classList.remove("selected");i.setAttribute("aria-checked","false")});button.classList.add("selected");button.setAttribute("aria-checked","true");selectedIssue=button.dataset.supportIssue||"";if(orderControl)orderControl.hidden=!orderIssues.has(selectedIssue);if(chatBtn)chatBtn.disabled=!selectedIssue}));
+    orderSelect?.addEventListener("change",()=>{if(orderSelect.value&&orderInput)orderInput.value=orderSelect.value});
+    chatBtn?.addEventListener("click",()=>{if(!selectedIssue)return;const id=orderIssues.has(selectedIssue)?(orderInput?.value.trim()||""):"";let message=`Hi Hiro Store Support, I need help with: ${selectedIssue}.`;if(id)message+=`\\n\\nOrder ID: ${id}`;message+="\\n\\nPlease assist me. Thank you.";window.open(`https://wa.me/2347057484714?text=${encodeURIComponent(message)}`,"_blank","noopener,noreferrer")});
+    document.querySelector('[data-mobile-nav="orders"]')?.classList.add("active");
+    // Orders are already loaded on this page; expose their IDs in the support picker.
+    const observer=new MutationObserver(()=>{const ids=[...document.querySelectorAll(".order-card[data-order-id]")].map(c=>c.dataset.orderId).filter(Boolean).slice(0,8);if(!ids.length||!orderSelect)return;orderSelect.innerHTML='<option value="">Select one of your recent orders</option>'+ids.map(id=>`<option value="${escapeHTML(id)}">${escapeHTML(id)}</option>`).join("");orderSelect.hidden=false;observer.disconnect()});
+    observer.observe(document.getElementById("ordersContainer"),{childList:true,subtree:true});
+}
+
+document.addEventListener("DOMContentLoaded", function(){ setupOrdersMobileAppNavigation(); checkLoginAndLoadOrders(); });
