@@ -3974,6 +3974,19 @@ app.post(
             const subtotalNgn = cleanItems.reduce(
                 (sum, item) => sum + item.price * item.qty, 0
             );
+
+            // Customer coupon access is checked only when a code is submitted.
+            // This keeps ordinary checkout available when coupons are disabled.
+            if (
+                String(couponCode || "").trim() &&
+                !hiroGetCustomerFeatures(user.id).coupons
+            ) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Coupons are not available on this account."
+                });
+            }
+
             let rewardAdjustment;
             try {
                 rewardAdjustment = evaluateCheckoutRewards({
