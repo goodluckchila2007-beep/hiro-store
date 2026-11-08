@@ -98,6 +98,24 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (!supportOpen || !authenticated) return;
+    let cancelled = false;
+    setSupportLoading(true);
+    Promise.all([
+      refreshSupportConversation(),
+      supportOrders.length ? Promise.resolve() : fetch(`${API}/orders`, { credentials: 'include', headers: { Accept: 'application/json' } }).then(async response => {
+        const data = await response.json().catch(() => ({}));
+        if (!cancelled && response.ok && Array.isArray(data.orders)) setSupportOrders(data.orders.slice(0, 8).map((order: any) => ({ orderId: String(order.orderId || '') })).filter((order: { orderId: string }) => order.orderId));
+      })
+    ]).catch(error => {
+      if (!cancelled) setGlobalNotice(error instanceof Error ? error.message : 'Unable to load support.');
+    }).finally(() => {
+      if (!cancelled) setSupportLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [supportOpen, authenticated]);
+
+  useEffect(() => {
     let cancelled = false;
     setLoadingProducts(true);
     fetch(`${API}/api/products?category=${encodeURIComponent(activeCategory)}`, { credentials: 'include' })
@@ -237,23 +255,8 @@ export default function HomePage() {
     setSupportMessages(Array.isArray(data.messages) ? data.messages : []);
   }
 
-  async function openSupport() {
+  function openSupport() {
     setSupportOpen(true);
-    if (!authenticated || supportLoading) return;
-    setSupportLoading(true);
-    try {
-      await Promise.all([
-        refreshSupportConversation(),
-        supportOrders.length ? Promise.resolve() : fetch(`${API}/orders`, { credentials: 'include', headers: { Accept: 'application/json' } }).then(async response => {
-          const data = await response.json().catch(() => ({}));
-          if (response.ok && Array.isArray(data.orders)) setSupportOrders(data.orders.slice(0, 8).map((order: any) => ({ orderId: String(order.orderId || '') })).filter((order: { orderId: string }) => order.orderId));
-        })
-      ]);
-    } catch (error) {
-      setGlobalNotice(error instanceof Error ? error.message : 'Unable to load support.');
-    } finally {
-      setSupportLoading(false);
-    }
   }
 
   async function sendSupportMessage() {
@@ -263,7 +266,7 @@ export default function HomePage() {
     let message = draft;
     if (!supportMessages.length) {
       const orderId = supportOrderIssues.includes(supportIssue) ? supportOrderId.trim() : '';
-      message = `Topic: ${supportIssue || 'General enquiry'}${orderId ? `\\nOrder ID: ${orderId}` : ''}\\n\\n${draft || 'Please help me with this issue.'}`;
+      message = `Topic: ${supportIssue || 'General enquiry'}${orderId ? `\nOrder ID: ${orderId}` : ''}\n\n${draft || 'Please help me with this issue.'}`;
     }
     setSupportSending(true);
     try {
