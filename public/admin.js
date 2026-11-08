@@ -694,7 +694,7 @@
 
         const totalOrders =
             Number(
-                analytics.totalOrders ||
+                analytics.orders?.total ??
                 orders.length
             );
 
