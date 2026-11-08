@@ -8477,6 +8477,8 @@ setInterval(() => {
     finance.refreshPrices().catch(error => logger.warn("Supplier refresh unavailable:", error.message));
 }, 10 * 60 * 1000).unref();
 
+require("./hiro-admin-modules")({ app, db, requireAdmin, finance, getSetting, setSetting });
+
 app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
 });
