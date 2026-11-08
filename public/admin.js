@@ -783,6 +783,10 @@
             formatCurrency(profit)
         );
 
+        setText("#dashboardPendingPayments", Number(analytics.orders?.pending || 0));
+        setText("#dashboardFulfillmentFailures", Number(analytics.fulfillment?.failed || 0));
+        setText("#dashboardRefundedValue", formatCurrency(analytics.money?.refundedOrderValue || 0));
+
         renderRecentOrders();
     }
 
