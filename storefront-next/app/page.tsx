@@ -281,6 +281,7 @@ export default function HomePage() {
 
   return <>
     <Script src="https://js.paystack.co/v2/inline.js" strategy="afterInteractive" onReady={() => setPaystackReady(true)} />
+    <Script src="https://widget.trustpilot.com/bootstrap/v5/tp.widget.bootstrap.min.js" strategy="afterInteractive" />
     <div className="site-shell">
       <header className="topbar">
         <Link className="brand" href="/" aria-label="Hiro Store home"><span className="brand-mark">H</span><span>hiro<span className="brand-light">store</span><small>YOUR GAME. YOUR WORLD.</small></span></Link>
@@ -340,7 +341,15 @@ export default function HomePage() {
         <section className="section why-section" id="why-hiro"><div className="section-kicker">THE HIRO DIFFERENCE / 04</div><h2>Made for the<br /><em>way you play.</em></h2><div className="benefit-grid"><article><span>01 /</span><b>Clear game regions</b><p>Regional restrictions are visible before checkout. No hidden surprises.</p></article><article><span>02 /</span><b>Secure payments</b><p>Checkout is handled through Paystack, with your order linked to its payment reference.</p></article><article><span>03 /</span><b>Track every order</b><p>Follow payment and delivery progress from your customer account.</p></article><article><span>04 /</span><b>Rewards are coming</b><p>Hiro Coins, member perks and coupons are part of the new account experience.</p></article></div></section>
       </main>
 
-      <footer className="footer"><Link className="brand footer-brand" href="/"><span className="brand-mark">H</span><span>hiro<span className="brand-light">store</span><small>YOUR GAME. YOUR WORLD.</small></span></Link><span>© {new Date().getFullYear()} Hiro Store. Built for players.</span><div><Link href="/account">Account</Link><a href="/privacy-policy.html">Privacy</a><a href="/terms.html">Terms</a></div></footer>
+      <section className="hiro-trustpilot-section" aria-label="Hiro Store customer reviews">
+      <div className="section-kicker">PLAYER FEEDBACK / TRUSTPILOT</div>
+      <h2>Real experiences.<br /><em>Honest reviews.</em></h2>
+      <p>See what customers say about shopping with Hiro Store.</p>
+      <div className="trustpilot-widget" data-locale="en-US" data-template-id="56278e9abfbbba0bdcd568bc" data-businessunit-id="6a90102a375fbf31a1fd8243" data-style-height="52px" data-style-width="100%" data-token="4f1634c9-aa20-4d2d-b292-791c7e42b217">
+        <a href="https://www.trustpilot.com/review/hirostore.site" target="_blank" rel="noopener noreferrer">Trustpilot</a>
+      </div>
+    </section>
+    <footer className="footer"><Link className="brand footer-brand" href="/"><span className="brand-mark">H</span><span>hiro<span className="brand-light">store</span><small>YOUR GAME. YOUR WORLD.</small></span></Link><span>© {new Date().getFullYear()} Hiro Store. Built for players.</span><div><Link href="/account">Account</Link><a href="/privacy-policy.html">Privacy</a><a href="/terms.html">Terms</a></div></footer>
     </div>
 
     <button
