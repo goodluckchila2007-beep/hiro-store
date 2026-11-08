@@ -56,6 +56,20 @@ test('coupon discount is restricted to eligible categories and per-customer limi
   db.close();
 });
 
+test('first completed purchase earns exactly one 5 HC bonus even when ongoing earning is disabled', () => {
+  const { db, settings, ledger } = fixture();
+  settings.set('coins_enabled', '0');
+  db.prepare(`INSERT INTO orders (order_id, user_id, status, order_total) VALUES ('first-order', 1, 'Paid', 5000), ('second-order', 1, 'Paid', 7000)`).run();
+  db.prepare(`INSERT INTO order_items (order_id, fulfillment_status) VALUES ('first-order', 'Completed'), ('second-order', 'Completed')`).run();
+
+  assert.equal(ledger.awardCoinsForCompletedOrder('first-order'), 5);
+  assert.equal(ledger.awardCoinsForCompletedOrder('first-order'), 0);
+  assert.equal(ledger.awardCoinsForCompletedOrder('second-order'), 0);
+  assert.equal(ledger.getCoinBalance(1), 5);
+  assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM coin_transactions WHERE kind = 'first_purchase_bonus'`).get().count, 1);
+  db.close();
+});
+
 test('coins are awarded only after every unit is completed and are reversed on refund', () => {
   const { db, ledger } = fixture();
   db.prepare(`INSERT INTO orders (order_id, user_id, status, order_total) VALUES ('ord-b', 1, 'Paid', 10000)`).run();
