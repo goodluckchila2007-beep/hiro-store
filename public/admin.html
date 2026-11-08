@@ -206,6 +206,14 @@
                 </button>
 
 
+                <button class="nav-item" data-section="advancedAnalytics" type="button"><span class="nav-icon">▥</span><span class="nav-text">Advanced Analytics</span></button>
+                <button class="nav-item" data-section="inventory" type="button"><span class="nav-icon">▣</span><span class="nav-text">Inventory Intelligence</span></button>
+                <button class="nav-item" data-section="financeCentre" type="button"><span class="nav-icon">₦</span><span class="nav-text">Finance &amp; Audit</span></button>
+                <button class="nav-item" data-section="crm" type="button"><span class="nav-icon">♙</span><span class="nav-text">Customer CRM</span></button>
+                <button class="nav-item" data-section="marketingCentre" type="button"><span class="nav-icon">✦</span><span class="nav-text">Marketing Centre</span></button>
+                <button class="nav-item" data-section="fzrBalance" type="button"><span class="nav-icon">◉</span><span class="nav-text">FZR Balance &amp; Fulfilment</span></button>
+                <button class="nav-item" data-section="securityCentre" type="button"><span class="nav-icon">⌑</span><span class="nav-text">Admin Security</span></button>
+
                 <div class="nav-heading secondary">
                     SYSTEM
                 </div>
@@ -1886,6 +1894,35 @@
                  SETTINGS SECTION
             ================================================== -->
 
+            <section class="admin-section" id="advancedAnalyticsSection">
+                <div class="section-heading"><div><span class="section-eyebrow">BUSINESS PERFORMANCE</span><h2>Advanced Analytics</h2><p>Sales trends, customer retention, top products and profit quality.</p></div><div><select id="advancedAnalyticsDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 365 days</option></select><button class="admin-secondary-btn" data-admin-module-refresh="advancedAnalytics" type="button">Refresh</button></div></div>
+                <div id="advancedAnalyticsContent" class="admin-module-content">Loading…</div>
+            </section>
+            <section class="admin-section" id="inventorySection">
+                <div class="section-heading"><div><span class="section-eyebrow">CATALOGUE HEALTH</span><h2>Inventory Intelligence</h2><p>Supplier availability, price gaps and catalogue freshness.</p></div><button class="admin-secondary-btn" data-admin-module-refresh="inventory" type="button">Refresh</button></div>
+                <div id="inventoryContent" class="admin-module-content">Loading…</div>
+            </section>
+            <section class="admin-section" id="financeCentreSection">
+                <div class="section-heading"><div><span class="section-eyebrow">MONEY CONTROL</span><h2>Finance &amp; Audit Centre</h2><p>Captured payments, Paystack fees, refunds, supplier costs and unmatched payments.</p></div><button class="admin-secondary-btn" data-admin-module-refresh="financeCentre" type="button">Refresh</button></div>
+                <div id="financeCentreContent" class="admin-module-content">Loading…</div>
+            </section>
+            <section class="admin-section" id="crmSection">
+                <div class="section-heading"><div><span class="section-eyebrow">CUSTOMER RELATIONSHIPS</span><h2>Customer CRM</h2><p>Customer lifetime spend, order frequency and account verification.</p></div><button class="admin-secondary-btn" data-admin-module-refresh="crm" type="button">Refresh</button></div>
+                <div id="crmContent" class="admin-module-content">Loading…</div>
+            </section>
+            <section class="admin-section" id="marketingCentreSection">
+                <div class="section-heading"><div><span class="section-eyebrow">GROWTH &amp; RETENTION</span><h2>Marketing Centre</h2><p>Coupon campaign performance and customer-facing store announcements.</p></div><button class="admin-secondary-btn" data-admin-module-refresh="marketingCentre" type="button">Refresh</button></div>
+                <div id="marketingCentreContent" class="admin-module-content">Loading…</div>
+            </section>
+            <section class="admin-section" id="fzrBalanceSection">
+                <div class="section-heading"><div><span class="section-eyebrow">SUPPLIER WALLET &amp; DELIVERY</span><h2>FZR Balance &amp; Fulfilment</h2><p>Live supplier wallet balance, low-balance alerts and supplier ledger.</p></div><button class="admin-secondary-btn" data-admin-module-refresh="fzrBalance" type="button">Refresh balance</button></div>
+                <div id="fzrBalanceContent" class="admin-module-content">Loading…</div>
+            </section>
+            <section class="admin-section" id="securityCentreSection">
+                <div class="section-heading"><div><span class="section-eyebrow">ACCESS CONTROL</span><h2>Admin Security</h2><p>Administrator accounts and recorded dashboard activity.</p></div><button class="admin-secondary-btn" data-admin-module-refresh="securityCentre" type="button">Refresh</button></div>
+                <div id="securityCentreContent" class="admin-module-content">Loading…</div>
+            </section>
+
             <section class="admin-section" id="settingsSection">
 
 
@@ -2228,6 +2265,7 @@
     ====================================================== -->
 
     <script src="admin.js?v=20260913-2" defer></script>
+    <script src="admin-modules.js?v=20261108-1" defer></script>
 </body>
 
 </html>
