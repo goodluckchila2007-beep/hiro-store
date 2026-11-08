@@ -155,3 +155,18 @@
   .hiro-support-backdrop { align-items: flex-end; justify-content: center; padding: 10px; }
   .hiro-support-panel { padding: 24px 18px; border-radius: 20px; max-height: 90vh; }
 }
+
+/* HIRO SUPPORT CHAT */
+.hiro-support-chat-status{display:flex;align-items:center;gap:8px;margin:0 0 12px;color:var(--muted);font-size:12px}
+.hiro-support-chat-status span{padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.08)}
+.hiro-support-chat-status span.is-open{color:#b9f6c8;background:rgba(65,190,116,.13)}
+.hiro-support-chat-messages{display:flex;flex-direction:column;gap:10px;max-height:260px;min-height:110px;overflow:auto;padding:12px;margin:0 0 12px;border:1px solid var(--line);border-radius:14px;background:rgba(0,0,0,.18)}
+.hiro-support-chat-messages>p{margin:auto;color:var(--muted);font-size:13px;text-align:center}
+.hiro-support-message{max-width:88%;padding:10px 12px;border:1px solid var(--line);border-radius:13px;background:var(--panel2)}
+.hiro-support-message.mine{align-self:flex-end;background:rgba(130,231,238,.1);border-color:rgba(130,231,238,.2)}
+.hiro-support-message.theirs{align-self:flex-start}
+.hiro-support-message strong{font-size:11px;color:var(--cyan)}
+.hiro-support-message p{margin:5px 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.5}
+.hiro-support-message time{display:block;color:var(--muted);font-size:10px}
+.hiro-support-chat-input{display:block;width:100%;resize:vertical;min-height:76px;margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--white);font:inherit}
+.hiro-support-note a{color:var(--cyan);text-decoration:underline}
