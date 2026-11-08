@@ -1,0 +1,2208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="robots" content="noindex, nofollow">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Hiro Store — Admin Dashboard</title>
+
+    <meta name="description" content="Hiro Store administration dashboard">
+
+    <link rel="stylesheet" href="admin.css?v=20260913-2">
+</head>
+
+<body>
+
+    <!-- =====================================================
+         ADMIN APP
+    ====================================================== -->
+
+    <div class="admin-app">
+
+        <!-- =================================================
+             MOBILE OVERLAY
+        ================================================== -->
+
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+
+        <!-- =================================================
+             SIDEBAR
+        ================================================== -->
+
+        <aside class="sidebar" id="sidebar">
+
+            <!-- BRAND -->
+
+            <div class="sidebar-brand">
+
+                <div class="brand-logo">
+                    <span>H</span>
+                </div>
+
+                <div class="brand-copy">
+                    <strong>HIRO</strong>
+                    <span>STORE ADMIN</span>
+                </div>
+
+                <button class="sidebar-close" id="sidebarClose" type="button" aria-label="Close menu">
+                    ×
+                </button>
+
+            </div>
+
+
+            <!-- STORE STATUS -->
+
+            <div class="sidebar-store-card">
+
+                <div class="store-status-icon">
+                    <span></span>
+                </div>
+
+                <div>
+                    <strong>Store Online</strong>
+                    <small>All systems operational</small>
+                </div>
+
+                <span class="online-pulse"></span>
+
+            </div>
+
+
+            <!-- NAVIGATION -->
+
+            <nav class="admin-nav">
+
+                <div class="nav-heading">
+                    MAIN MENU
+                </div>
+
+
+                <button class="nav-item active" data-section="dashboard" type="button">
+
+                    <span class="nav-icon">▦</span>
+
+                    <span class="nav-text">
+                        Dashboard
+                    </span>
+
+                </button>
+
+
+                <button class="nav-item" data-section="orders" type="button">
+
+                    <span class="nav-icon">▤</span>
+
+                    <span class="nav-text">
+                        Orders
+                    </span>
+
+                    <span class="nav-badge" id="navOrderCount">
+                        0
+                    </span>
+
+                </button>
+
+
+                <button class="nav-item" data-section="processing" type="button">
+
+                    <span class="nav-icon">◷</span>
+
+                    <span class="nav-text">
+                        Processing
+                    </span>
+
+                    <span class="nav-badge warning" id="navProcessingCount">
+                        0
+                    </span>
+
+                </button>
+
+
+                <button class="nav-item" data-section="completed" type="button">
+
+                    <span class="nav-icon">✓</span>
+
+                    <span class="nav-text">
+                        Completed
+                    </span>
+
+                </button>
+
+                <button class="nav-item" data-section="refunded" type="button">
+
+                    <span class="nav-icon">💰</span>
+
+                    <span class="nav-text">
+                        Refunded
+                    </span>
+                </button>
+
+
+                <div class="nav-heading secondary">
+                    STORE
+                </div>
+
+
+                <button class="nav-item" data-section="products" type="button">
+
+                    <span class="nav-icon">◇</span>
+
+                    <span class="nav-text">
+                        Products
+                    </span>
+
+                </button>
+
+
+                <button class="nav-item" data-section="customers" type="button">
+
+                    <span class="nav-icon">♙</span>
+
+                    <span class="nav-text">
+                        Customers
+                    </span>
+
+                </button>
+
+                <button class="nav-item" data-section="promotions" type="button">
+                    <span class="nav-icon">✦</span>
+                    <span class="nav-text">Promotions &amp; Rewards</span>
+                </button>
+
+
+                <button class="nav-item" data-section="complaints" type="button">
+
+                    <span class="nav-icon">⚑</span>
+
+                    <span class="nav-text">
+                        Complaints
+                    </span>
+                    <span class="complaint-alert-badge" id="complaintAlertBadge" hidden>0</span>
+
+                </button>
+
+
+                <button class="nav-item" data-section="analytics" type="button">
+
+                    <span class="nav-icon">⌁</span>
+
+                    <span class="nav-text">
+                        Analytics
+                    </span>
+
+                </button>
+
+                <button class="nav-item" data-section="unmatched" type="button">
+                    <span class="nav-icon">⚠</span>
+
+                    <span class="nav-text">
+                        Unmatched Payments
+                    </span>
+                </button>
+
+
+                <div class="nav-heading secondary">
+                    SYSTEM
+                </div>
+
+
+                <button class="nav-item" data-section="settings" type="button">
+
+                    <span class="nav-icon">⚙</span>
+
+                    <span class="nav-text">
+                        Settings
+                    </span>
+
+                </button>
+
+            </nav>
+
+
+            <!-- SIDEBAR FOOTER -->
+
+            <div class="sidebar-bottom">
+
+                <div class="admin-status">
+
+                    <span class="status-dot"></span>
+
+                    <div>
+                        <strong>System Online</strong>
+                        <small>SQLite connected</small>
+                    </div>
+
+                </div>
+
+                <a href="/" class="back-store">
+
+                    <span>←</span>
+
+                    <span>Back to Store</span>
+
+                </a>
+
+            </div>
+
+        </aside>
+
+
+        <!-- =================================================
+             MAIN CONTENT
+        ================================================== -->
+
+        <main class="main-content">
+
+
+            <!-- =================================================
+                 TOPBAR
+            ================================================== -->
+
+            <header class="topbar">
+
+                <div class="topbar-left">
+
+                    <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Open menu">
+
+                        ☰
+
+                    </button>
+
+
+                    <div class="page-heading">
+
+                        <span class="topbar-eyebrow">
+                            HIRO STORE
+                        </span>
+
+                        <h1 id="pageTitle">
+                            Dashboard
+                        </h1>
+
+                        <p id="pageSubtitle">
+                            Welcome back, Administrator.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="topbar-right">
+
+
+                    <!-- SEARCH -->
+
+                    <button class="topbar-icon-btn" type="button" aria-label="Search">
+
+                        ⌕
+
+                    </button>
+
+
+                    <!-- NOTIFICATIONS -->
+
+                    <button class="notification-btn topbar-icon-btn" type="button" aria-label="Notifications">
+
+                        ♢
+
+                        <span class="notification-dot"></span>
+
+                    </button>
+
+
+                    <!-- REFRESH -->
+
+                    <button class="refresh-btn" id="refreshBtn" type="button">
+
+                        <span class="refresh-icon">
+                            ↻
+                        </span>
+
+                        <span>
+                            Refresh
+                        </span>
+
+                    </button>
+
+
+                    <!-- ADMIN PROFILE -->
+
+                    <div class="admin-profile">
+
+                        <div class="admin-avatar">
+                            A
+                        </div>
+
+                        <div class="admin-profile-copy">
+
+                            <strong>
+                                Administrator
+                            </strong>
+
+                            <small>
+                                Store Manager
+                            </small>
+
+                        </div>
+
+                        <span class="profile-arrow">
+                            ▾
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </header>
+
+
+            <!-- =================================================
+                 DASHBOARD
+            ================================================== -->
+
+            <section class="admin-section active" id="dashboardSection">
+
+
+                <!-- HERO -->
+
+                <div class="dashboard-hero">
+
+                    <div class="hero-content">
+
+                        <span class="hero-tag">
+                            STORE OVERVIEW
+                        </span>
+
+                        <h2>
+                            Your store is
+                            <span>running smoothly.</span>
+                        </h2>
+
+                        <p>
+                            Keep track of orders, payments,
+                            customers and store performance
+                            from one place.
+                        </p>
+
+
+                        <div class="hero-actions">
+
+                            <button class="hero-primary" data-section="orders" type="button">
+
+                                View Orders
+                                <span>→</span>
+
+                            </button>
+
+                            <button class="hero-secondary" id="heroRefreshBtn" type="button">
+
+                                Refresh Data
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="hero-decoration">
+
+                        <div class="hero-circle circle-one"></div>
+                        <div class="hero-circle circle-two"></div>
+                        <div class="hero-circle circle-three"></div>
+
+                        <div class="hero-floating-card">
+
+                            <span class="floating-label">
+                                STORE STATUS
+                            </span>
+
+                            <strong>
+                                LIVE
+                            </strong>
+
+                            <small>
+                                Accepting orders
+                            </small>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- =================================================
+                     STATISTICS
+                ================================================== -->
+
+                <div class="dashboard-section-title">
+
+                    <div>
+                        <span>PERFORMANCE</span>
+                        <h3>Store Overview</h3>
+                    </div>
+
+                    <span class="section-date">
+                        Live data
+                    </span>
+
+                </div>
+
+
+                <div class="stats-grid">
+
+
+                    <!-- TOTAL ORDERS -->
+
+                    <div class="stat-card orange-card">
+
+                        <div class="stat-card-header">
+
+                            <div class="stat-icon">
+                                🧾
+                            </div>
+
+                            <span class="stat-trend positive">
+                                LIVE
+                            </span>
+
+                        </div>
+
+                        <span class="stat-label">
+                            TOTAL ORDERS
+                        </span>
+
+                        <strong class="stat-value" id="totalOrders">
+                            0
+                        </strong>
+
+                        <div class="stat-footer">
+
+                            <span>
+                                All recorded orders
+                            </span>
+
+                            <span class="stat-arrow">
+                                ↗
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- REVENUE -->
+
+                    <div class="stat-card green-card">
+
+                        <div class="stat-card-header">
+
+                            <div class="stat-icon">
+                                ₦
+                            </div>
+
+                            <span class="stat-trend positive">
+                                REVENUE
+                            </span>
+
+                        </div>
+
+                        <span class="stat-label">
+                            TOTAL REVENUE
+                        </span>
+
+                        <strong class="stat-value" id="totalRevenue">
+                            ₦0
+                        </strong>
+
+                        <div class="stat-footer">
+
+                            <span>
+                                Successful payments
+                            </span>
+
+                            <span class="stat-arrow">
+                                ↗
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- PROCESSING -->
+
+                    <div class="stat-card blue-card">
+
+                        <div class="stat-card-header">
+
+                            <div class="stat-icon">
+                                ◷
+                            </div>
+
+                            <span class="stat-trend warning">
+                                ACTIVE
+                            </span>
+
+                        </div>
+
+                        <span class="stat-label">
+                            PROCESSING
+                        </span>
+
+                        <strong class="stat-value" id="processingOrders">
+                            0
+                        </strong>
+
+                        <div class="stat-footer">
+
+                            <span>
+                                Awaiting fulfillment
+                            </span>
+
+                            <span class="stat-arrow">
+                                →
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- COMPLETED -->
+
+                    <div class="stat-card purple-card">
+
+                        <div class="stat-card-header">
+
+                            <div class="stat-icon">
+                                ✓
+                            </div>
+
+                            <span class="stat-trend complete">
+                                DONE
+                            </span>
+
+                        </div>
+
+                        <span class="stat-label">
+                            COMPLETED
+                        </span>
+
+                        <strong class="stat-value" id="completedOrders">
+                            0
+                        </strong>
+
+                        <div class="stat-footer">
+
+                            <span>
+                                Fulfilled orders
+                            </span>
+
+                            <span class="stat-arrow">
+                                ↗
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- =================================================
+                     DASHBOARD GRID
+                ================================================== -->
+
+                <div class="dashboard-grid">
+
+
+                    <!-- SALES ACTIVITY -->
+
+                    <div class="dashboard-panel sales-panel">
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <span class="panel-eyebrow">
+                                    PERFORMANCE
+                                </span>
+
+                                <h3>
+                                    Sales Activity
+                                </h3>
+
+                                <p>
+                                    Your store activity overview
+                                </p>
+
+                            </div>
+
+
+                            <select class="panel-select" id="salesPeriod">
+
+                                <option value="7">
+                                    Last 7 days
+                                </option>
+
+                                <option value="30">
+                                    Last 30 days
+                                </option>
+
+                                <option value="90">
+                                    Last 90 days
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <div class="sales-summary">
+
+                            <div>
+
+                                <span>
+                                    Revenue
+                                </span>
+
+                                <strong id="dashboardRevenue">
+                                    ₦0
+                                </strong>
+
+                            </div>
+
+                            <div>
+
+                                <span>
+                                    Orders
+                                </span>
+
+                                <strong id="dashboardOrderCount">
+                                    0
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- CSS CHART CONTAINER -->
+
+                        <div class="sales-chart" id="salesChart">
+
+                            <div class="chart-grid-lines">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+
+                            <div class="chart-placeholder">
+
+                                <span class="chart-placeholder-icon">
+                                    ↗
+                                </span>
+
+                                <span>
+                                    Sales activity will appear here
+                                </span>
+
+                            </div>
+
+                            <div class="chart-days">
+
+                                <span>Mon</span>
+                                <span>Tue</span>
+                                <span>Wed</span>
+                                <span>Thu</span>
+                                <span>Fri</span>
+                                <span>Sat</span>
+                                <span>Sun</span>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- QUICK ACTIONS -->
+
+                    <div class="dashboard-panel quick-actions-panel">
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <span class="panel-eyebrow">
+                                    SHORTCUTS
+                                </span>
+
+                                <h3>
+                                    Quick Actions
+                                </h3>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="quick-actions">
+
+
+                            <button class="quick-action orange" data-section="orders" type="button">
+
+                                <span class="quick-action-icon">
+                                    🧾
+                                </span>
+
+                                <span>
+                                    <strong>
+                                        Manage Orders
+                                    </strong>
+
+                                    <small>
+                                        View customer orders
+                                    </small>
+                                </span>
+
+                                <b>→</b>
+
+                            </button>
+
+
+                            <button class="quick-action blue" data-section="processing" type="button">
+
+                                <span class="quick-action-icon">
+                                    ◷
+                                </span>
+
+                                <span>
+                                    <strong>
+                                        Fulfill Orders
+                                    </strong>
+
+                                    <small>
+                                        Check processing queue
+                                    </small>
+                                </span>
+
+                                <b>→</b>
+
+                            </button>
+
+
+
+
+                            <button class="quick-action purple" data-section="products" type="button">
+
+                                <span class="quick-action-icon">
+                                    ◇
+                                </span>
+
+                                <span>
+                                    <strong>
+                                        Products
+                                    </strong>
+
+                                    <small>
+                                        Manage store products
+                                    </small>
+                                </span>
+
+                                <b>→</b>
+
+                            </button>
+
+
+                            <button class="quick-action green" data-section="analytics" type="button">
+
+                                <span class="quick-action-icon">
+                                    ⌁
+                                </span>
+
+                                <span>
+                                    <strong>
+                                        View Analytics
+                                    </strong>
+
+                                    <small>
+                                        Store performance
+                                    </small>
+                                </span>
+
+                                <b>→</b>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- =================================================
+                     LOWER DASHBOARD
+                ================================================== -->
+
+                <div class="dashboard-grid lower-grid">
+
+
+                    <!-- RECENT ORDERS -->
+
+                    <div class="dashboard-panel recent-orders-panel">
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <span class="panel-eyebrow">
+                                    ORDERS
+                                </span>
+
+                                <h3>
+                                    Recent Orders
+                                </h3>
+
+                                <p>
+                                    Latest customer purchases
+                                </p>
+
+                            </div>
+
+                            <button class="view-all-btn" data-section="orders" type="button">
+
+                                View All
+                                <span>→</span>
+
+                            </button>
+
+                        </div>
+
+
+                        <div class="recent-orders" id="recentOrders">
+
+                            <div class="empty-state">
+
+                                <div class="empty-icon">
+                                    🧾
+                                </div>
+
+                                <h4>
+                                    No orders loaded
+                                </h4>
+
+                                <p>
+                                    Orders from SQLite will appear here.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- STORE HEALTH -->
+
+                    <div class="dashboard-panel store-health-panel">
+
+                        <div class="panel-header">
+
+                            <div>
+
+                                <span class="panel-eyebrow">
+                                    SYSTEM
+                                </span>
+
+                                <h3>
+                                    Store Health
+                                </h3>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="health-list">
+
+
+                            <div class="health-item">
+
+                                <div class="health-icon green">
+                                    ✓
+                                </div>
+
+                                <div class="health-copy">
+
+                                    <strong>
+                                        API Connection
+                                    </strong>
+
+                                    <small>
+                                        Backend responding
+                                    </small>
+
+                                </div>
+
+                                <span class="health-status good">
+                                    Online
+                                </span>
+
+                            </div>
+
+
+                            <div class="health-item">
+
+                                <div class="health-icon blue">
+                                    ◉
+                                </div>
+
+                                <div class="health-copy">
+
+                                    <strong>
+                                        Database
+                                    </strong>
+
+                                    <small>
+                                        SQLite connection
+                                    </small>
+
+                                </div>
+
+                                <span class="health-status good">
+                                    Connected
+                                </span>
+
+                            </div>
+
+
+                            <div class="health-item">
+
+                                <div class="health-icon purple">
+                                    ◆
+                                </div>
+
+                                <div class="health-copy">
+
+                                    <strong>
+                                        Products
+                                    </strong>
+
+                                    <small>
+                                        Product catalog
+                                    </small>
+
+                                </div>
+
+                                <span class="health-status good">
+                                    Ready
+                                </span>
+
+                            </div>
+
+
+                            <div class="health-item">
+
+                                <div class="health-icon orange">
+                                    ⚡
+                                </div>
+
+                                <div class="health-copy">
+
+                                    <strong>
+                                        Payments
+                                    </strong>
+
+                                    <small>
+                                        Payment processing
+                                    </small>
+
+                                </div>
+
+                                <span class="health-status good">
+                                    Ready
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="system-footer">
+
+                            <span class="status-dot"></span>
+
+                            <span>
+                                All systems operational
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 ORDERS SECTION
+            ================================================== -->
+
+            <section class="admin-section" id="ordersSection">
+
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <span class="section-eyebrow">
+                            STORE MANAGEMENT
+                        </span>
+
+                        <h2>
+                            Orders
+                        </h2>
+
+                        <p>
+                            View and manage every customer order.
+                        </p>
+
+                    </div>
+
+
+                    <div class="section-actions">
+
+                        <button class="outline-action" id="exportOrdersBtn" type="button">
+
+                            ↓ Export
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ORDER STATS -->
+
+                <div class="mini-stats">
+
+                    <div class="mini-stat">
+                        <span>ALL ORDERS</span>
+                        <strong id="ordersTotalMini">0</strong>
+                    </div>
+
+                    <div class="mini-stat orange">
+                        <span>PAID</span>
+                        <strong id="ordersPaidMini">0</strong>
+                    </div>
+
+                    <div class="mini-stat blue">
+                        <span>PROCESSING</span>
+                        <strong id="ordersProcessingMini">0</strong>
+                    </div>
+
+                    <div class="mini-stat green">
+                        <span>COMPLETED</span>
+                        <strong id="ordersCompletedMini">0</strong>
+                    </div>
+
+                </div>
+
+
+                <!-- TOOLBAR -->
+
+                <div class="orders-toolbar">
+
+                    <div class="search-box">
+
+                        <span>⌕</span>
+
+                        <input type="search" id="orderSearch" placeholder="Search order ID, reference, Player ID..."
+                            autocomplete="off">
+
+                    </div>
+
+
+                    <div class="filter-group">
+
+                        <select id="statusFilter">
+
+                            <option value="all">
+                                All Statuses
+                            </option>
+
+                            <option value="Paid">
+                                Paid
+                            </option>
+
+                            <option value="Processing">
+                                Processing
+                            </option>
+
+                            <option value="Completed">
+                                Completed
+                            </option>
+
+                            <option value="Refunded">
+                                Refunded
+                            </option>
+
+                            <option value="Cancelled">
+                                Cancelled
+                            </option>
+
+                        </select>
+
+
+                        <select id="dateFilter">
+
+                            <option value="all">
+                                All Dates
+                            </option>
+
+                            <option value="today">
+                                Today
+                            </option>
+
+                            <option value="week">
+                                Last 7 Days
+                            </option>
+
+                            <option value="month">
+                                Last 30 Days
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ORDERS TABLE -->
+
+                <div class="orders-panel">
+
+                    <div class="table-topbar">
+
+                        <div>
+
+                            <strong>
+                                Customer Orders
+                            </strong>
+
+                            <span id="ordersResultCount">
+                                0 results
+                            </span>
+
+                        </div>
+
+                        <span class="table-live">
+                            ● LIVE
+                        </span>
+
+                    </div>
+
+
+                    <div class="table-wrapper">
+
+                        <table class="orders-table">
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>
+                                        Order Total
+                                    </th>
+
+                                    <th>
+                                        Charged
+                                    </th>
+
+                                    <th>
+                                        Customer
+                                    </th>
+
+                                    <th>
+                                        Purchase
+                                    </th>
+
+                                    <th>
+                                        Amount
+                                    </th>
+
+                                    <th>
+                                        Status
+                                    </th>
+
+                                    <th>
+                                        Date
+                                    </th>
+
+                                    <th>
+                                        Action
+                                    </th>
+
+                                </tr>
+
+                            </thead>
+
+
+                            <tbody id="ordersTableBody">
+
+                                <tr>
+
+                                    <td colspan="8" class="table-empty">
+
+                                        <div class="empty-state">
+
+                                            <div class="empty-icon">
+                                                🧾
+                                            </div>
+
+                                            <h4>
+                                                No orders yet
+                                            </h4>
+
+                                            <p>
+                                                Customer orders will appear here.
+                                            </p>
+
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 PROCESSING SECTION
+            ================================================== -->
+
+            <section class="admin-section" id="processingSection">
+
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <span class="section-eyebrow">
+                            FULFILLMENT
+                        </span>
+
+                        <h2>
+                            Processing Orders
+                        </h2>
+
+                        <p>
+                            Orders that still need to be fulfilled.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="processing-summary">
+
+                    <div class="processing-summary-icon">
+                        ◷
+                    </div>
+
+                    <div>
+
+                        <span>
+                            ORDERS WAITING
+                        </span>
+
+                        <strong id="processingSummaryCount">
+                            0
+                        </strong>
+
+                    </div>
+
+                    <p>
+                        Review these orders and complete them
+                        once the customer's purchase has been fulfilled.
+                    </p>
+
+                </div>
+
+
+                <div class="processing-grid" id="processingOrdersList">
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            ◷
+                        </div>
+
+                        <h4>
+                            Nothing processing
+                        </h4>
+
+                        <p>
+                            Orders requiring fulfillment will appear here.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 COMPLETED SECTION
+            ================================================== -->
+
+            <section class="admin-section" id="completedSection">
+
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <span class="section-eyebrow">
+                            FULFILLMENT
+                        </span>
+
+                        <h2>
+                            Completed Orders
+                        </h2>
+
+                        <p>
+                            Orders that have been successfully fulfilled.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="completed-banner">
+
+                    <div class="completed-banner-icon">
+                        ✓
+                    </div>
+
+                    <div>
+
+                        <span>
+                            SUCCESSFULLY FULFILLED
+                        </span>
+
+                        <strong id="completedSummaryCount">
+                            0
+                        </strong>
+
+                    </div>
+
+                    <p>
+                        These orders have been completed successfully.
+                    </p>
+
+                </div>
+
+
+                <div class="completed-grid" id="completedOrdersList">
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            ✓
+                        </div>
+
+                        <h4>
+                            No completed orders
+                        </h4>
+
+                        <p>
+                            Completed orders will appear here.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+            <!-- =================================================
+            REFUNDED SECTION
+           ================================================== -->
+
+            <section class="admin-section" id="refundedSection">
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <span class="section-eyebrow">
+                            REFUNDS
+                        </span>
+
+                        <h2>
+                            Refunded Orders
+                        </h2>
+
+                        <p>
+                            Orders that have been refunded to customers.
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <div class="refunded-banner">
+
+                    <div class="refunded-banner-icon">
+                        💰
+                    </div>
+
+                    <div>
+
+                        <span>
+                            REFUNDED ORDERS
+                        </span>
+
+                        <strong id="refundedSummaryCount">
+                            0
+                        </strong>
+
+                    </div>
+
+                    <p>
+                        These orders have been refunded.
+                    </p>
+
+                </div>
+
+                <div class="refunded-grid" id="refundedOrdersList">
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            💰
+                        </div>
+
+                        <h4>
+                            No refunded orders
+                        </h4>
+
+                        <p>
+                            Refunded orders will appear here.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 PRODUCTS SECTION
+            ================================================== -->
+
+            <section class="admin-section" id="productsSection">
+
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <span class="section-eyebrow">
+                            STORE CATALOG
+                        </span>
+
+                        <h2>
+                            Products
+                        </h2>
+
+                        <p>
+                            Manage your available products and services.
+                        </p>
+
+                    </div>
+
+
+                    <div class="product-header-actions"><span class="hiro-report-note">Selling price &amp; availability</span><button type="button" class="btn-retry" id="syncFzrCatalogueBtn">Sync FZR catalogue ↻</button></div>
+
+                </div>
+
+
+                <div class="hiro-catalog-toolbar">
+                    <label class="hiro-catalog-search" for="productSearch">Find a product
+                        <input id="productSearch" type="search" placeholder="Search product name or offer ID…" autocomplete="off">
+                    </label>
+                    <label class="hiro-catalog-filter" for="productStatusFilter">Show
+                        <select id="productStatusFilter">
+                            <option value="all">All offers</option>
+                            <option value="unpriced">Needs a selling price</option>
+                            <option value="inactive">Unavailable</option>
+                            <option value="ready">Active and priced</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="hiro-catalog-summary" id="productCatalogSummary" aria-live="polite"></div>
+                <div class="hiro-product-list" id="adminProductsList">
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            ◇
+                        </div>
+
+                        <h4>
+                            Product catalog
+                        </h4>
+
+                        <p>
+                            Your products will appear here.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 CUSTOMERS SECTION
+            ================================================== -->
+
+            <section class="admin-section" id="customersSection">
+
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <span class="section-eyebrow">
+                            CUSTOMER MANAGEMENT
+                        </span>
+
+                        <h2>
+                            Customers
+                        </h2>
+
+                        <p>
+                            Understand your customers and their purchases.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="customer-overview-grid">
+
+                    <div class="customer-card">
+
+                        <div class="customer-card-icon orange">
+                            ♙
+                        </div>
+
+                        <span>
+                            TOTAL CUSTOMERS
+                        </span>
+
+                        <strong id="totalCustomers">
+                            0
+                        </strong>
+
+                    </div>
+
+
+                    <div class="customer-card">
+
+                        <div class="customer-card-icon green">
+                            ₦
+                        </div>
+
+                        <span>
+                            CUSTOMER SPEND
+                        </span>
+
+                        <strong id="customerSpend">
+                            ₦0
+                        </strong>
+
+                    </div>
+
+
+                    <div class="customer-card">
+
+                        <div class="customer-card-icon blue">
+                            ↗
+                        </div>
+
+                        <span>
+                            RETURNING
+                        </span>
+
+                        <strong id="returningCustomers">
+                            0
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div class="customers-panel" id="customersList">
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            ♙
+                        </div>
+
+                        <h4>
+                            No customers loaded
+                        </h4>
+
+                        <p>
+                            Customer information will appear here.
+                        </p>
+
+                    </div>
+
+                </div>
+            </section>
+
+
+            <!-- =================================================
+                 COMPLAINTS SECTION
+            ================================================== -->
+
+            <section class="admin-section" id="complaintsSection">
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <span class="section-eyebrow">
+                            CUSTOMER SUPPORT
+                        </span>
+
+                        <h2>
+                            Complaints
+                        </h2>
+
+                        <p>
+                            Review and respond to customer-reported issues.
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <div class="inbox-layout">
+
+                    <div class="inbox-list-column">
+                        <div class="support-inbox-tools">
+                            <input id="supportSearch" type="search" placeholder="Search customer, email or order…" aria-label="Search support conversations">
+                            <select id="supportStatusFilter" aria-label="Filter support conversations"><option value="all">All conversations</option><option value="Open">Open</option><option value="Resolved">Resolved</option></select>
+                        </div>
+                        <div class="inbox-list" id="complaintsList">
+                        <div class="empty-state">
+                            <div class="empty-icon">⚑</div>
+                            <h4>No complaints loaded</h4>
+                            <p>Customer complaints will appear here.</p>
+                        </div>
+                        </div>
+                    </div>
+
+                    <div class="inbox-thread" id="inboxThreadPanel">
+                        <div class="empty-state">
+                            <div class="empty-icon">💬</div>
+                            <h4>Select a conversation</h4>
+                            <p>Click a customer on the left to view messages.</p>
+                        </div>
+                    </div>
+
+                </div>
+
+            </section>
+
+            <!-- =================================================
+                 ANALYTICS SECTION
+            ================================================== -->
+
+            <section id="analyticsSection" class="admin-section">
+                <div class="section-header"><div><h2>Profit overview</h2><p class="section-subtitle">Paid sales, recorded supplier costs and actual payment fees.</p></div>
+                    <button id="refreshAnalyticsBtn" class="admin-secondary-btn" type="button">Refresh</button></div>
+                <div class="hiro-tabs" aria-label="Profit period">
+                    <button type="button" data-profit-period="7" aria-pressed="true">7 Days</button>
+                    <button type="button" data-profit-period="30" aria-pressed="false">30 Days</button>
+                    <button type="button" data-profit-period="all" aria-pressed="false">All Time</button>
+                </div>
+                <div class="analytics-grid hiro-profit-grid">
+                    <div class="analytics-card"><span class="analytics-label">Revenue</span><strong id="profitRevenue">—</strong></div>
+                    <div class="analytics-card"><span class="analytics-label">FZR cost</span><strong id="profitCost">—</strong></div>
+                    <div class="analytics-card"><span class="analytics-label">Paystack fees</span><strong id="profitFees">—</strong></div>
+                    <div class="analytics-card"><span class="analytics-label">Net profit</span><strong id="profitNet">—</strong><small id="profitMargin">—</small></div>
+                </div>
+                <p id="profitStatus" class="hiro-report-note" role="status">Loading profit report…</p>
+                <button id="recoverFeesBtn" type="button" class="admin-secondary-btn" hidden>Retrieve missing fees (10 orders)</button>
+                <div class="analytics-panel"><div class="analytics-panel-header"><h3>Current product profitability</h3></div>
+                    <p class="hiro-report-note">Estimated profit for one product per local payment. Edit selling prices and availability in Products.</p>
+                    <details class="hiro-projection-details"><summary>How estimates work</summary><p class="hiro-report-note">Local NGN fee estimate: 1.5% + ₦100 from ₦2,500, capped at ₦2,000. International fees, split arrangements and multi-item carts can differ. Historical reports above use actual recorded fees, never this estimate.</p></details>
+                    <div id="profitProducts"></div>
+                </div>
+            </section>
+
+            <section class="admin-section" id="unmatchedSection">
+
+                <div class="section-heading">
+                    <div>
+
+                        <span class="section-eyebrow">
+                            PAYMENT RECONCILIATION
+                        </span>
+
+                        <h2>
+                            Unmatched Payments
+                        </h2>
+
+                        <p>
+                            Successful Paystack payments that
+                            could not be matched to a Hiro order.
+                        </p>
+
+                    </div>
+                </div>
+
+
+                <div class="settings-block">
+
+                    <div id="unmatchedPaymentsList" class="status-list">
+                        <p>Loading...</p>
+                    </div>
+
+                </div>
+
+            </section>
+
+            <!-- =================================================
+                 PROMOTIONS & REWARDS SECTION
+            ================================================== -->
+            <section class="admin-section" id="promotionsSection">
+                <div class="section-heading">
+                    <div><span class="section-eyebrow">CUSTOMER GROWTH</span><h2>Promotions &amp; Rewards</h2><p>Create controlled discounts and configure the Hiro Coins loyalty programme.</p></div>
+                </div>
+                <div class="promotion-layout">
+                    <div class="settings-panel">
+                        <div class="settings-block">
+                            <h3>Create coupon campaign</h3>
+                            <form id="couponCreateForm" class="promotion-form">
+                                <label>Coupon code<input name="code" required maxlength="32" placeholder="e.g. HIRO20"></label>
+                                <div class="promotion-form-grid">
+                                    <label>Discount type<select name="discountType"><option value="percent">Percentage</option><option value="fixed">Fixed amount (₦)</option></select></label>
+                                    <label>Discount value<input name="discountValue" type="number" min="0.01" step="0.01" required></label>
+                                    <label>Minimum order (₦)<input name="minOrderNgn" type="number" min="0" step="1" value="0"></label>
+                                    <label>Maximum discount (₦)<input name="maxDiscountNgn" type="number" min="0" step="1" value="0"></label>
+                                    <label>Total uses (0 = unlimited)<input name="usageLimit" type="number" min="0" step="1" value="0"></label>
+                                    <label>Uses per customer (0 = unlimited)<input name="perUserLimit" type="number" min="0" step="1" value="0"></label>
+                                    <label>Starts at<input name="startsAt" type="datetime-local"></label>
+                                    <label>Ends at<input name="endsAt" type="datetime-local"></label>
+                                </div>
+                                <label>Eligible game regions (leave empty for all selected categories)<select id="couponCategories" multiple size="6">
+                                    <option value="blood_strike">Blood Strike Global</option><option value="genshin_impact_global">Genshin Impact Global</option><option value="honkai_star_rail_global">Honkai: Star Rail Global</option><option value="marvel_rivals">Marvel Rivals</option><option value="mobile_legends_global">Mobile Legends Global</option><option value="mobile_legends_philippines">Mobile Legends Philippines</option><option value="mobile_legends_indonesia">Mobile Legends Indonesia</option><option value="mobile_legends_malaysia">Mobile Legends Malaysia</option><option value="lords_mobile">Lords Mobile</option><option value="codm_activision_in">CODM Activision India</option>
+                                </select></label>
+                                <button type="submit" class="btn-retry">Create coupon</button>
+                            </form>
+                        </div>
+                        <div class="settings-block"><h3>Coupon campaigns</h3><div id="adminCouponsList" class="promotion-list"><p>Loading campaigns…</p></div></div>
+                    </div>
+                    <div class="settings-panel">
+                        <div class="settings-block">
+                            <h3>Hiro Coins settings</h3>
+                            <p class="settings-block-description">Coin values are deliberately disabled until you configure the earning rate, naira value and redemption cap. This prevents unapproved discounts from affecting margins.</p>
+                            <form id="coinSettingsForm" class="promotion-form">
+                                <div class="settings-row"><div><strong>Enable Hiro Coins</strong><p>Allow customers to earn and redeem coins.</p></div><label class="toggle-switch"><input type="checkbox" id="coinEnabledToggle"><span class="toggle-slider"></span></label></div>
+                                <label>Coins earned per ₦100 paid<input id="coinEarnRateInput" type="number" min="0" step="0.01" value="0"></label>
+                                <label>Value of one coin in naira (₦)<input id="coinValueInput" type="number" min="0" step="0.01" value="0"></label>
+                                <label>Maximum order discount from coins (%)<input id="coinMaxPercentInput" type="number" min="0" max="100" step="1" value="0"></label>
+                                <div class="settings-row"><div><strong>Allow coupon + coin stacking</strong><p>Customers can apply a coupon and redeem coins on one order.</p></div><label class="toggle-switch"><input type="checkbox" id="coinStackToggle"><span class="toggle-slider"></span></label></div>
+                                <button type="submit" class="btn-retry">Save Hiro Coins settings</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- =================================================
+                 SETTINGS SECTION
+            ================================================== -->
+
+            <section class="admin-section" id="settingsSection">
+
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <span class="section-eyebrow">
+                            SYSTEM CONFIGURATION
+                        </span>
+
+                        <h2>
+                            Settings
+                        </h2>
+
+                        <p>
+                            Configure your administration environment.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="settings-panel">
+
+                    <div class="settings-block">
+
+                        <h3>Store Settings</h3>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Maintenance Mode</strong>
+                                <p>When on, customers can't complete checkout. Browsing still works.</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="maintenanceModeToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>USD ? NGN Exchange Rate</strong>
+                                <p>Used to calculate supplier cost in Naira.</p>
+                            </div>
+                            <input type="number" id="usdNgnRateInput" class="settings-input" min="1" step="1">
+                        </div>
+                        <div class="settings-row">
+                            <div>
+                                <strong>Payments Enabled</strong>
+                                <p>
+                                    Turn off to temporarily block new checkouts
+                                    without enabling full maintenance mode.
+                                </p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="paymentsEnabledToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Automatic Fulfillment</strong>
+                                <p>
+                                    Controls whether paid orders are automatically
+                                    sent to FZR.
+                                </p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="autoFulfillmentToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Maximum Quantity</strong>
+                                <p>
+                                    Maximum units allowed for one package
+                                    during checkout.
+                                </p>
+                            </div>
+
+                            <input type="number" id="maxQuantityInput" class="settings-input" min="1" max="100"
+                                step="1">
+                        </div>
+
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Pending Order Expiry</strong>
+                                <p>
+                                    Hours before abandoned unpaid checkouts
+                                    are marked Cancelled.
+                                </p>
+                            </div>
+
+                            <input type="number" id="pendingOrderExpiryInput" class="settings-input" min="1" max="168"
+                                step="1">
+                        </div>
+
+
+                        <div class="settings-row settings-row-column">
+                            <div>
+                                <strong>Store Announcement</strong>
+                                <p>
+                                    Optional message shown to customers.
+                                </p>
+                            </div>
+
+                            <textarea id="storeAnnouncementInput" class="settings-textarea" maxlength="300" rows="3"
+                                placeholder="Example: Scheduled maintenance tonight at 11 PM."></textarea>
+                        </div>
+
+                        <button type="button" id="saveSettingsBtn" class="btn-retry">
+                            Save Settings
+                        </button>
+
+                    </div>
+
+                    <div class="settings-block">
+
+                        <h3>System Status</h3>
+
+                        <div id="systemStatusList" class="status-list">
+                            <p>Loading...</p>
+                        </div>
+
+                    </div>
+
+                    <div class="settings-block">
+
+                        <h3>Store Operations</h3>
+
+                        <p class="settings-block-description">
+                            Live operational overview of checkout,
+                            fulfillment and store configuration.
+                        </p>
+
+                        <div id="storeOperationsList" class="status-list">
+                            <p>Loading...</p>
+                        </div>
+
+                    </div>
+
+                    <div class="settings-block">
+
+                        <h3>Notification Controls</h3>
+
+                        <p class="settings-block-description">
+                            Choose which operational alerts Hiro Store sends to the admin email.
+                        </p>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Email Notifications</strong>
+                                <p>Master switch for all admin alert emails.</p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notificationsEnabledToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Failed Fulfillment Alerts</strong>
+                                <p>Send an alert when FZR delivery fails.</p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notifyFailedFulfillmentToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>New Complaint Alerts</strong>
+                                <p>Notify the admin when a customer submits a complaint.</p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notifyNewComplaintToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Payment Error Alerts</strong>
+                                <p>Notify the admin about serious payment or webhook failures.</p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notifyPaymentErrorToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row">
+                            <div>
+                                <strong>Paid Order Alerts</strong>
+                                <p>Send an email whenever a new order is successfully paid.</p>
+                            </div>
+
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notifyPaidOrderToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-row settings-row-column">
+                            <div>
+                                <strong>Notification Email</strong>
+                                <p>
+                                    Admin email address that should receive operational alerts.
+                                </p>
+                            </div>
+
+                            <input type="email" id="notificationEmailInput" class="settings-input"
+                                placeholder="admin@example.com">
+                        </div>
+                        <button type="button" id="saveNotificationSettingsBtn" class="btn-retry">
+                            Save Notification Settings
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <!-- =====================================================
+         ORDER DETAILS MODAL
+    ====================================================== -->
+
+    <div class="modal-overlay" id="orderModal" aria-hidden="true">
+
+
+        <div class="order-modal" role="dialog" aria-modal="true" aria-labelledby="orderModalTitle">
+
+
+            <!-- MODAL HEADER -->
+
+            <div class="modal-header">
+
+                <div>
+
+                    <span class="modal-label">
+                        ORDER DETAILS
+                    </span>
+
+                    <h2 id="orderModalTitle">
+                        Order
+                    </h2>
+
+                </div>
+
+
+                <button class="modal-close" id="closeOrderModal" type="button" aria-label="Close order details">
+
+                    ×
+
+                </button>
+
+            </div>
+
+
+            <!-- MODAL CONTENT -->
+
+            <div class="modal-body" id="orderModalBody">
+
+                <div class="modal-loading">
+
+                    <div class="loading-spinner"></div>
+
+                    <span>
+                        Loading order...
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <!-- MODAL FOOTER -->
+
+            <div class="modal-footer">
+
+                <button class="modal-secondary-btn" id="cancelOrderModal" type="button">
+
+                    Close
+
+                </button>
+
+
+                <button class="modal-cancel-btn" id="cancelOrderBtn" type="button">
+
+                    ✕ Cancel Unpaid Order
+
+                </button>
+
+
+                <button class="modal-refund-btn" id="markRefundedBtn" type="button">
+
+                    💰 Mark Refunded
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         TOAST
+    ====================================================== -->
+
+    <div id="adminToastContainer" class="admin-toast-container" aria-live="polite" aria-atomic="true">
+    </div>
+
+
+    <!-- =====================================================
+         JAVASCRIPT
+    ====================================================== -->
+
+    <script src="admin.js?v=20260913-2" defer></script>
+</body>
+
+</html>

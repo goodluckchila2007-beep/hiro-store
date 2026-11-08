@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Buy Mobile Legends Diamonds in Nigeria instantly with Hiro Official.">
+    <title>Hiro Store | Mobile Legends Diamonds Nigeria</title>
+    <meta name="trustpilot-one-time-domain-verification-id" content="4fca1e16-bc6f-49ef-aeb3-9fa9bf78f1e9" />
+
+    <meta property="og:title" content="Hiro Store | Mobile Legends Diamonds Nigeria">
+    <meta property="og:description"
+        content="Fast, secure diamond delivery for Mobile Legends: Bang Bang — trusted by real players in Nigeria.">
+    <meta property="og:image" content="https://hirostore.site/img/og-image.jpeg">
+    <meta property="og:url" content="https://hirostore.site">
+    <meta property="og:type" content="website">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Hiro Store | Mobile Legends Diamonds Nigeria">
+    <meta name="twitter:description"
+        content="Fast, secure diamond delivery for Mobile Legends: Bang Bang — trusted by real players in Nigeria.">
+    <meta name="twitter:image" content="https://hirostore.site/img/og-image.jpeg">
+    <link rel="preload" as="image" href="img/Banner1.webp" fetchpriority="high">
+    <link rel="stylesheet" href="style.css?v=20260914-ux1">
+    <link rel="icon" type="image/x-icon" href="img/icon.jpeg">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Poppins:wght@300;400;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="trust-strip">
+        <span>⚡ Fast delivery</span>
+        <span>✓ Secure payment</span>
+        <span>🎧 24/7 support</span>
+    </div>
+    <div class="nav-wrapper">
+        <button class="mobile-menu-btn" type="button" aria-label="Open menu">
+            ☰
+        </button>
+        <div class="brand-pill">
+            <img class="png" src="img/icon.jpeg" alt="Hiro">
+            <div class="brand-text">
+                <strong>Hiro Store</strong>
+                <span>Instant, Secure, Affordable.</span>
+            </div>
+        </div>
+
+        <nav class="pill-links" id="mobileMenu">
+            <a href="#home" class="pill-link">
+                <span class="pill-icon"><img src="img/home.png" alt=""></span> Home
+            </a>
+            <a href="profile.html" class="pill-link">
+                <span class="pill-icon"><img src="img/profile.png" alt=""></span>Profile
+            </a>
+            <a href="orders.html" class="pill-link">
+                <span class="pill-icon">▣</span> My Orders
+            </a>
+            <a href="#cart" class="pill-link cart-link">
+                <span class="pill-icon cart-icon">
+                    <img src="img/trolley.png" alt="">
+                    <span id="cartCount" class="cart-count">0</span> </span>
+                Cart
+            </a>
+            <a href="#about" class="pill-link">
+                <span class="pill-icon"><img src="img/about.png" alt=""></span>About
+            </a>
+            <a href="#support" data-open-hiro-support
+                class="pill-link mobile-contact-link">
+
+                <span class="pill-icon">
+                    🎧
+                </span>
+                Customer Care
+            </a>
+        </nav>
+
+        <div class="action-group">
+
+            <a href="#support" data-open-hiro-support class="contact-btn"
+                aria-label="Open Hiro Store support">
+
+                <img src="img/headset.png" alt="Contact">
+            </a>
+
+            <button class="login-btn">Login</button>
+
+            <button type="button" class="logout-btn" style="display: none;">
+                Logout
+            </button>
+
+        </div>
+    </div>
+
+
+    <!-- Mobile app-style navigation (desktop navigation above remains unchanged) -->
+    <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+        <a href="/#home" class="mobile-bottom-item" data-mobile-nav="home">
+            <span class="mobile-bottom-icon" aria-hidden="true">⌂</span><span>Home</span>
+        </a>
+        <a href="/#cart" class="mobile-bottom-item" data-mobile-nav="cart">
+            <span class="mobile-bottom-icon mobile-bottom-cart-icon" aria-hidden="true">🛒<span class="mobile-cart-count" aria-label="Cart items">0</span></span><span>Cart</span>
+        </a>
+        <a href="/orders.html" class="mobile-bottom-item" data-mobile-nav="orders">
+            <span class="mobile-bottom-icon" aria-hidden="true">▣</span><span>Orders</span>
+        </a>
+        <button type="button" class="mobile-bottom-item" id="mobileSupportBtn" data-mobile-nav="support">
+            <span class="mobile-bottom-icon" aria-hidden="true">🎧</span><span>Support</span>
+        </button>
+        <button type="button" class="mobile-bottom-item" id="mobileMoreBtn" data-mobile-nav="more" aria-expanded="false" aria-controls="mobileMoreSheet">
+            <span class="mobile-bottom-icon" aria-hidden="true">•••</span><span>More</span>
+        </button>
+    </nav>
+
+    <div class="mobile-sheet-overlay" id="mobileSheetOverlay" hidden></div>
+
+    <section class="mobile-action-sheet" id="mobileMoreSheet" aria-hidden="true" aria-labelledby="mobileMoreTitle">
+        <div class="mobile-sheet-handle" aria-hidden="true"></div>
+        <div class="mobile-sheet-heading">
+            <div><p class="mobile-sheet-kicker">Hiro Store</p><h2 id="mobileMoreTitle">More</h2></div>
+            <button type="button" class="mobile-sheet-close" data-close-mobile-sheet aria-label="Close menu">×</button>
+        </div>
+        <div class="mobile-more-links">
+            <a href="/profile.html" class="mobile-more-row"><span aria-hidden="true">👤</span><span><strong>My Profile</strong><small>Account and support</small></span><b aria-hidden="true">›</b></a>
+            <a href="/#about" class="mobile-more-row"><span aria-hidden="true">ⓘ</span><span><strong>About Hiro Store</strong><small>Learn more about Hiro</small></span><b aria-hidden="true">›</b></a>
+            <button type="button" class="mobile-more-row mobile-auth-action" id="mobileAuthAction"><span aria-hidden="true">↪</span><span><strong>Login</strong><small>Access your Hiro account</small></span><b aria-hidden="true">›</b></button>
+        </div>
+    </section>
+
+    <section class="mobile-action-sheet support-action-sheet" id="mobileSupportSheet" aria-hidden="true" aria-labelledby="mobileSupportTitle">
+        <div class="mobile-sheet-handle" aria-hidden="true"></div>
+        <div class="mobile-sheet-heading">
+            <div><p class="mobile-sheet-kicker">We're here to help</p><h2 id="mobileSupportTitle">Hiro Support</h2><p>What do you need help with?</p></div>
+            <button type="button" class="mobile-sheet-close" data-close-mobile-sheet aria-label="Close support">×</button>
+        </div>
+        <div class="support-choice-list" role="radiogroup" aria-label="Support issue">
+            <button type="button" class="support-choice" role="radio" aria-checked="false" data-support-issue="Order not received"><span>📦</span><span><strong>Order not received</strong><small>My top-up hasn't arrived</small></span></button>
+            <button type="button" class="support-choice" role="radio" aria-checked="false" data-support-issue="Payment problem"><span>💳</span><span><strong>Payment problem</strong><small>Payment failed or I was charged</small></span></button>
+            <button type="button" class="support-choice" role="radio" aria-checked="false" data-support-issue="Wrong Player ID / Server"><span>🎮</span><span><strong>Wrong Player ID / Server</strong><small>I entered incorrect game details</small></span></button>
+            <button type="button" class="support-choice" role="radio" aria-checked="false" data-support-issue="Refund or failed order"><span>↩</span><span><strong>Refund or failed order</strong><small>I need help with a failed transaction</small></span></button>
+            <button type="button" class="support-choice" role="radio" aria-checked="false" data-support-issue="Something else"><span>💬</span><span><strong>Something else</strong><small>Talk to customer support</small></span></button>
+        </div>
+        <div class="support-order-control" id="mobileSupportOrderControl" hidden>
+            <label for="mobileSupportOrderId">Order ID <span>(optional)</span></label>
+            <select id="mobileSupportOrderSelect" hidden><option value="">Select an order</option></select>
+            <input id="mobileSupportOrderId" type="text" autocomplete="off" placeholder="e.g. HIRO-12345" maxlength="80">
+        </div>
+        <button type="button" class="support-whatsapp-btn" id="mobileSupportChatBtn" disabled>Chat with Support</button>
+        <p class="support-whatsapp-note">Opens WhatsApp with your issue details already filled in.</p>
+    </section>
+
+    <div id="storeAnnouncement" class="store-announcement" hidden>
+        <span class="store-announcement-icon">
+            📢
+        </span>
+
+        <span id="storeAnnouncementText"></span>
+    </div>
+
+    <div class="hero-flex-wrapper">
+        <section id="home" class="hero">
+            <div class="hero-inner">
+
+                <div class="hero-slider">
+
+                    <img src="img/Banner1.webp" class="hero-slide active" alt="Hiro Store Banner 1" loading="eager" fetchpriority="high" decoding="async">
+
+                    <img src="img/Banner2.webp" class="hero-slide" alt="Hiro Store Banner 2" loading="lazy" decoding="async">
+
+                    <img src="img/Banner3.webp" class="hero-slide" alt="Hiro Store Banner 3" loading="lazy" decoding="async">
+
+                    <div class="hero-dots">
+                        <button class="hero-dot active" data-slide="0" aria-label="Show banner 1"></button>
+                        <button class="hero-dot" data-slide="1" aria-label="Show banner 2"></button>
+                        <button class="hero-dot" data-slide="2" aria-label="Show banner 3"></button>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <section class="main-headline-section">
+
+            <span class="headline-eyebrow">⚡ FAST & SECURE</span>
+            <h1>Top Up <span class="headline-highlight">Mobile Legends Diamonds</span></h1>
+            <p>Fast, secure diamond delivery for Mobile Legends: Bang Bang — 100% trusted.</p>
+
+        </section>
+    </div>
+
+    <section class="purchase-guide-section" id="how-it-works">
+        <div class="diamond-heading">
+            <span class="diamond-eyebrow">HOW IT WORKS</span>
+            <h2>Top Up in 4 Simple Steps</h2>
+            <p>Everything happens on Hiro Store — no need to message an agent before buying.</p>
+        </div>
+        <div class="purchase-guide-grid">
+            <article class="purchase-guide-card"><span class="purchase-guide-number">1</span><strong>Choose a
+                    Package</strong>
+                <p>Select the diamond bundle you want.</p>
+            </article>
+            <article class="purchase-guide-card"><span class="purchase-guide-number">2</span><strong>Verify Your
+                    Account</strong>
+                <p>Enter your Player ID and Server ID, then confirm the account shown.</p>
+            </article>
+            <article class="purchase-guide-card"><span class="purchase-guide-number">3</span><strong>Pay
+                    Securely</strong>
+                <p>Complete payment through Paystack. Never pay twice for the same order.</p>
+            </article>
+            <article class="purchase-guide-card"><span class="purchase-guide-number">4</span><strong>Track
+                    Delivery</strong>
+                <p>Open My Orders anytime to see payment and delivery progress.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="region-select-section" id="region-select">
+        <div class="diamond-heading">
+            <span class="diamond-eyebrow">CHOOSE YOUR REGION</span>
+            <h2>Choose Your Region</h2>
+            <p>Choose the region that matches your Mobile Legends account.</p>
+        </div>
+
+        <div class="region-grid">
+
+            <button type="button" class="region-card active" data-region="global">
+                <div class="region-banner region-banner-global">
+                    <span class="region-flag">🌐</span>
+                </div>
+                <strong>Global</strong>
+                <span class="region-status available">Available</span>
+            </button>
+
+            <button type="button" class="region-card" data-region="ph">
+                <div class="region-banner region-banner-ph">
+                    <span class="region-flag">🇵🇭</span>
+                </div>
+                <strong>Philippines (PH)</strong>
+                <span class="region-status available">Available</span>
+            </button>
+
+            <button type="button" class="region-card disabled" data-region="id" disabled>
+                <div class="region-banner region-banner-id">
+                    <span class="region-flag">🇮🇩</span>
+                </div>
+                <strong>Indonesia (ID)</strong>
+                <span class="region-status">Coming Soon</span>
+            </button>
+
+            <button type="button" class="region-card disabled" data-region="my" disabled>
+                <div class="region-banner region-banner-my">
+                    <span class="region-flag">🇲🇾</span>
+                </div>
+                <strong>Malaysia (MY)</strong>
+                <span class="region-status">Coming Soon</span>
+            </button>
+
+            <button type="button" class="region-card disabled" data-region="us" disabled>
+                <div class="region-banner region-banner-us">
+                    <span class="region-flag">🇺🇸</span>
+                </div>
+                <strong>United States (US)</strong>
+                <span class="region-status">Coming Soon</span>
+            </button>
+
+        </div>
+    </section>
+
+    <section class="diamond-section" id="diamonds">
+
+        <button type="button" id="backToRegions" class="back-to-regions">
+            Back to Regions
+        </button>
+
+
+        <div class="diamond-heading">
+            <span class="diamond-eyebrow" id="diamondsEyebrow">⚡ FAST TOP-UP</span>
+
+            <h2 id="diamondsHeading">Choose Your Diamond Package</h2>
+
+            <p id="diamondsSubtext">
+                Tap a package below to select it, then verify your game account.
+            </p>
+        </div>
+
+
+        <!-- =====================================================
+     REGION / AVAILABILITY WARNING
+====================================================== -->
+
+        <div class="mlbb-region-warning">
+
+            <div class="warning-icon">🌍</div>
+
+            <div class="warning-content">
+
+                <strong>Global Region Restrictions</strong>
+
+                <p>
+                    Mobile Legends Global is not available for
+                    <strong>Indonesia (ID)</strong> and
+                    <strong>Brazil (BR)</strong>.
+                </p>
+
+                <p>
+                    The following packages are also unavailable for
+                    <strong>MY / SG / PH / ID / RU</strong> regions:
+                </p>
+
+                <div class="restricted-packages">
+                    <span>78 + 8</span>
+                    <span>156 + 16</span>
+                    <span>234 + 23</span>
+                    <span>625 + 81</span>
+                    <span>1860 + 335</span>
+                    <span>3099 + 589</span>
+                    <span>4649 + 883</span>
+                    <span>7740 + 1548</span>
+                    <span>Weekly Pass</span>
+                </div>
+
+                <p class="bonus-text">
+                    <strong>🎁 First Top-Up Bonus</strong>
+                </p>
+
+                <div class="bonus-packages">
+                    <span>50 + 5 → 50 + 50</span>
+                    <span>150 + 15 → 150 + 150</span>
+                    <span>250 + 25 → 250 + 250</span>
+                    <span>500 + 65 → 500 + 500</span>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =====================================================
+     FZR PRODUCTS
+====================================================== -->
+
+        <div class="diamond-grid" id="mlbb-products-grid">
+
+            <div class="skeleton-card">
+                <div class="skeleton-shimmer skeleton-icon"></div>
+                <div class="skeleton-shimmer skeleton-title"></div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skeleton-shimmer skeleton-icon"></div>
+                <div class="skeleton-shimmer skeleton-title"></div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skeleton-shimmer skeleton-icon"></div>
+                <div class="skeleton-shimmer skeleton-title"></div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skeleton-shimmer skeleton-icon"></div>
+                <div class="skeleton-shimmer skeleton-title"></div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skeleton-shimmer skeleton-icon"></div>
+                <div class="skeleton-shimmer skeleton-title"></div>
+            </div>
+            <div class="skeleton-card">
+                <div class="skeleton-shimmer skeleton-icon"></div>
+                <div class="skeleton-shimmer skeleton-title"></div>
+            </div>
+
+
+    </section>
+
+    <style>
+        /* =========================================================
+   MLBB REGION WARNING
+========================================================= */
+
+        .mlbb-region-warning {
+
+            display: flex;
+            gap: 12px;
+
+            margin: 18px auto 22px;
+
+            padding: 14px 16px;
+
+            max-width: 900px;
+
+            border-radius: 12px;
+
+            background: rgba(255, 170, 0, 0.08);
+
+            border: 1px solid rgba(255, 170, 0, 0.25);
+
+            color: #f5f5f5;
+
+            font-size: 13px;
+
+            line-height: 1.5;
+        }
+
+
+        .warning-icon {
+
+            flex: 0 0 auto;
+
+            font-size: 22px;
+
+            line-height: 1;
+        }
+
+
+        .warning-content {
+
+            min-width: 0;
+        }
+
+
+        .warning-content strong {
+
+            color: #ffffff;
+        }
+
+
+        .warning-content p {
+
+            margin: 4px 0 8px;
+        }
+
+
+        .restricted-packages,
+        .bonus-packages {
+
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 6px;
+
+            margin: 7px 0 10px;
+        }
+
+
+        .restricted-packages span,
+        .bonus-packages span {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            padding: 4px 8px;
+
+            border-radius: 6px;
+
+            background: rgba(255, 255, 255, 0.06);
+
+            border: 1px solid rgba(255, 255, 255, 0.08);
+
+            font-size: 11px;
+
+            white-space: nowrap;
+        }
+
+
+        .bonus-text {
+
+            margin-top: 10px !important;
+
+            margin-bottom: 5px !important;
+        }
+
+
+        /* =========================================================
+   MLBB PRODUCT GRID
+========================================================= */
+
+        .diamond-grid {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(auto-fit, minmax(145px, 1fr));
+
+            gap: 10px;
+
+            width: 100%;
+        }
+
+
+        /* =========================================================
+   SMALL PRODUCT CARD
+========================================================= */
+
+        .diamond-grid .card {
+
+            position: relative;
+
+            min-width: 0;
+
+            padding: 13px 10px;
+
+            border-radius: 11px;
+
+            cursor: pointer;
+
+            text-align: center;
+
+            transition:
+                transform 0.2s ease,
+                border-color 0.2s ease,
+                box-shadow 0.2s ease;
+        }
+
+
+        .diamond-grid .card:hover {
+
+            transform: translateY(-2px);
+        }
+
+
+        /* Keep the card contents compact */
+
+        .diamond-grid .card-icon {
+
+            font-size: 22px;
+
+            margin-bottom: 5px;
+        }
+
+
+        .diamond-grid .card h3 {
+
+            margin: 0;
+
+            font-size: 13px;
+
+            line-height: 1.25;
+        }
+
+
+        .diamond-grid .card p {
+
+            margin: 5px 0 0;
+
+            font-size: 10px;
+
+            opacity: 0.7;
+        }
+
+
+        /* Price added by JS */
+
+        .diamond-grid .card-price {
+
+            margin-top: 7px;
+
+            font-size: 13px;
+
+            font-weight: 700;
+        }
+
+
+        .diamond-grid .card-badge {
+
+            position: absolute;
+
+            top: 6px;
+
+            right: 6px;
+
+            padding: 2px 5px;
+
+            border-radius: 5px;
+
+            font-size: 8px;
+
+            font-weight: 700;
+        }
+
+
+        /* =========================================================
+   LOADING / ERROR
+========================================================= */
+
+        .products-loading,
+        .products-error {
+
+            grid-column: 1 / -1;
+
+            text-align: center;
+
+            padding: 25px 15px;
+
+            opacity: 0.7;
+
+            font-size: 13px;
+        }
+
+
+        /* =========================================================
+   MOBILE
+========================================================= */
+
+        @media (max-width: 600px) {
+
+            .mlbb-region-warning {
+
+                margin: 12px 0 16px;
+
+                padding: 11px 12px;
+
+                gap: 9px;
+
+                font-size: 11px;
+
+                border-radius: 10px;
+            }
+
+
+            .warning-icon {
+
+                font-size: 18px;
+            }
+
+
+            .restricted-packages,
+            .bonus-packages {
+
+                gap: 4px;
+
+            }
+
+
+            .restricted-packages span,
+            .bonus-packages span {
+
+                padding: 3px 6px;
+
+                font-size: 9px;
+
+            }
+
+
+            .diamond-grid {
+
+                grid-template-columns:
+                    repeat(3, minmax(0, 1fr));
+
+                gap: 7px;
+            }
+
+
+            .diamond-grid .card {
+
+                padding: 10px 6px;
+
+                border-radius: 9px;
+            }
+
+
+            .diamond-grid .card-icon {
+
+                font-size: 18px;
+
+                margin-bottom: 3px;
+            }
+
+
+            .diamond-grid .card h3 {
+
+                font-size: 10px;
+            }
+
+
+            .diamond-grid .card p {
+
+                font-size: 8px;
+
+                margin-top: 3px;
+            }
+
+
+            .diamond-grid .card-price {
+
+                font-size: 10px;
+
+                margin-top: 5px;
+            }
+
+
+            .diamond-grid .card-badge {
+
+                top: 4px;
+
+                right: 4px;
+
+                font-size: 6px;
+
+                padding: 2px 3px;
+            }
+
+        }
+
+
+        /* =========================================================
+   VERY SMALL PHONES
+========================================================= */
+
+        @media (max-width: 380px) {
+
+            .diamond-grid {
+
+                grid-template-columns:
+                    repeat(2, minmax(0, 1fr));
+
+                gap: 7px;
+            }
+
+        }
+    </style>
+
+    <div class="selected-box" style="display: none;">
+        <div class="selected-info">
+            <strong id="selectedTitle">-</strong>
+            <span id="selectedPrice">₦0</span>
+        </div>
+        <div class="qty-control">
+            <button type="button" id="qtyMinus">-</button>
+            <span id="qtyValue">1</span>
+            <button type="button" id="qtyPlus">+</button>
+        </div>
+    </div>
+    <div class="player-info">
+        <input type="number" id="playerId" name="playerId" placeholder="Player ID" class="id-input">
+        <input type="number" id="serverId" name="serverId" placeholder="Server ID" class="id-input">
+        <button type="button" class="verify-btn">Verify Account</button>
+    </div>
+    <details class="player-id-help">
+        <summary>Where do I find my Player ID and Server ID?</summary>
+        <p>Open Mobile Legends, tap your profile picture, and copy the Player ID and Server/Zone ID shown on your
+            profile. Verify the account name before adding the package to cart.</p>
+    </details>
+    <div class="player-result">
+        <span class="result-icon">👤</span>
+        <div>
+            <strong id="playerName">-</strong>
+            <span>Confirm this is your account</span>
+        </div>
+    </div>
+    <button class="cart-btn-main">🛒Add Selected Package to Cart</button>
+
+    <section id="about" class="about-section">
+        <h2> About Hiro Store</h2>
+        <p>Hiro Store is a Nigerian gaming top-up store specializing in fast Mobile Legends diamond delivery.
+            Enter your Player ID, verify your account, pay securely, and receive your diamonds without needing to
+            contact an agent.!</p>
+
+        <div class="trust-box">
+            <div class="trust-badges">
+                <div class="badge-item">
+                    <span class="badge-icon"></span>
+                    <div>
+                        <strong>Safe & Secure</strong>
+                        <span>Verified transactions</span>
+                    </div>
+                </div>
+                <div class="badge-item">
+                    <span class="badge-icon"></span>
+                    <div>
+                        <strong>Fast Delivery</strong>
+                        <span>Usually delivered within minutes</span>
+                    </div>
+                </div>
+                <div class="badge-item">
+                    <span class="badge-icon"></span>
+                    <div>
+                        <strong>Fast Support</strong>
+                        <span>Replies within 30 minutes on WhatsApp</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-pill">
+            <span class="status-dot"></span>
+            SERVICES ACTIVE
+        </div>
+    </section>
+
+    <section class="why-choose-section">
+
+        <div class="diamond-heading">
+            <span class="diamond-eyebrow">🛡️ WHY CHOOSE US</span>
+            <h2>Why Gamers Trust Hiro Store</h2>
+        </div>
+
+        <div class="why-choose-grid">
+
+            <div class="why-choose-card">
+                <span class="why-icon">⚡</span>
+                <strong>Fast Delivery</strong>
+                <p>Most orders arrive within minutes of payment confirmation.</p>
+            </div>
+
+            <div class="why-choose-card">
+                <span class="why-icon">🔒</span>
+                <strong>Secure Payments</strong>
+                <p>All payments are processed securely through Paystack.</p>
+            </div>
+
+            <div class="why-choose-card">
+                <span class="why-icon">🎧</span>
+                <strong>Real Support</strong>
+                <p>Reach a real person on WhatsApp, not a bot — usually within 30 minutes.</p>
+            </div>
+
+            <div class="why-choose-card">
+                <span class="why-icon">🧑‍💻</span>
+                <strong>Run by a Gamer</strong>
+                <p>Hiro Store is run by someone who actually plays MLBB — not a faceless company.</p>
+            </div>
+
+        </div>
+
+    </section>
+
+    <section class="customer-help-section" id="help">
+        <div class="diamond-heading">
+            <span class="diamond-eyebrow">NEED HELP?</span>
+            <h2>Quick Answers</h2>
+            <p>Check these before contacting support.</p>
+        </div>
+        <div class="customer-help-list">
+            <details>
+                <summary>Where can I see my order after paying?</summary>
+                <p>Open <a href="orders.html">My Orders</a>. Your order stays there even after you close the payment
+                    window.</p>
+            </details>
+            <details>
+                <summary>I paid but delivery is still processing. Should I pay again?</summary>
+                <p>No. Do not pay again. Check My Orders for the latest delivery status. If there is a delivery issue,
+                    contact support with your Hiro Order ID.</p>
+            </details>
+            <details>
+                <summary>How long does delivery take?</summary>
+                <p>Most successful orders are delivered within minutes after Paystack confirms payment. Some supplier or
+                    network delays can take longer.</p>
+            </details>
+            <details>
+                <summary>What if I entered the wrong Player ID?</summary>
+                <p>Always use Verify Account and confirm the displayed account before paying. If you notice a mistake
+                    before payment, correct it first.</p>
+            </details>
+        </div>
+    </section>
+
+    <section class="community-section">
+
+        <div class="community-box">
+
+            <h2>Join the Hiro Store Community</h2>
+            <p>Get updates on new packages, bonuses, and promos first.</p>
+
+            <a href="https://whatsapp.com/channel/0029VbCAiP3GE56tmNVMxq0o" target="_blank" rel="noopener noreferrer"
+                class="community-btn">
+                💬 Join on WhatsApp
+            </a>
+
+        </div>
+
+    </section>
+
+    <section id="cart" class="cart-section">
+        <h2>Your Cart</h2>
+        <div class="cart-items">
+            <p>Your cart is empty.</p>
+        </div>
+    </section>
+
+    <div class="login-popup" id="loginPopup" role="dialog" aria-hidden="true" aria-labelledby="loginTitle"
+        style="display: none;">
+
+        <div class="login">
+
+            <!-- CLOSE -->
+            <button type="button" class="close-login" aria-label="Close">
+                &times;
+            </button>
+
+            <!-- LOGIN FORM -->
+            <div id="loginForm">
+
+                <h2 id="loginTitle">Welcome back</h2>
+
+                <label>
+                    <input type="email" id="username" name="username" placeholder="Email" autocomplete="email">
+                </label>
+
+                <label class="password-field"><input type="password" id="password" name="password" placeholder="Password"
+                        autocomplete="current-password"><button type="button" class="password-toggle" data-password-toggle="password" aria-label="Show login password" aria-controls="password" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span class="sr-only">Show password</span></button></label>
+
+                <p class="forgot-password-row">
+                    <button type="button" class="forgot-password-btn">
+                        Forgot password?
+                    </button>
+                </p>
+
+                <button type="button" class="login-bt">
+                    Login
+                </button>
+
+                <p class="or">OR</p>
+
+                <button type="button" class="signup-btn">
+                    Sign Up
+                </button>
+
+            </div>
+
+
+            <!-- SIGN UP FORM -->
+            <div id="signupForm" style="display: none;">
+
+                <h2>Create account</h2>
+
+                <label>
+                    <input type="text" id="signupName" placeholder="Full name" autocomplete="name">
+                </label>
+
+                <label>
+                    <input type="email" id="signupEmail" placeholder="Email" autocomplete="email">
+                </label>
+
+                <label>
+                    <input type="tel" id="signupPhone" placeholder="Phone number" autocomplete="tel">
+                </label>
+
+                <label class="password-field"><input type="password" id="signupPassword" placeholder="Password" autocomplete="new-password"><button type="button" class="password-toggle" data-password-toggle="signupPassword" aria-label="Show signup password" aria-controls="signupPassword" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span class="sr-only">Show password</span></button></label>
+
+                <label class="password-field"><input type="password" id="signupConfirmPassword" placeholder="Confirm password"
+                        autocomplete="new-password"><button type="button" class="password-toggle" data-password-toggle="signupConfirmPassword" aria-label="Show confirm password" aria-controls="signupConfirmPassword" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span class="sr-only">Show password</span></button></label>
+
+                <button type="button" class="create-account-btn">
+                    Create Account
+                </button>
+
+                <p class="or">OR</p>
+
+                <button type="button" class="back-login-btn">
+                    Back to Login
+                </button>
+
+            </div>
+
+            <!-- FORGOT PASSWORD FORM -->
+            <div id="forgotPasswordForm" style="display: none;">
+
+                <h2>Reset password</h2>
+
+                <p class="forgot-password-text">
+                    Enter your email address and we'll send you instructions
+                    to reset your password.
+                </p>
+
+                <label>
+                    <input type="email" id="forgotPasswordEmail" placeholder="Email" autocomplete="email">
+                </label>
+
+                <button type="button" class="send-reset-btn">
+                    Send Reset Link
+                </button>
+
+                <p class="or">OR</p>
+
+                <button type="button" class="back-login-from-forgot-btn">
+                    Back to Login
+                </button>
+
+            </div>
+
+        </div>
+    </div>
+
+    <div id="checkoutModal" class="checkout-modal" style="display: none;">
+
+        <div class="checkout-box">
+
+            <button type="button" class="close-checkout" aria-label="Close checkout">&times;</button>
+
+            <h2>Secure Checkout</h2>
+
+            <div class="checkout-summary"></div>
+
+            <label for="checkoutEmail">Email</label>
+            <input id="checkoutEmail" type="email" placeholder="example@email.com" autocomplete="email" required>
+
+            <label for="checkoutPhone">Phone</label>
+            <input id="checkoutPhone" type="tel" placeholder="08012345678" autocomplete="tel">
+
+            <button type="button" id="payNowBtn">
+                Pay Securely
+            </button>
+
+        </div>
+
+    </div>
+
+    <div id="orderConfirmationModal" class="checkout-modal" style="display: none;">
+        <div class="checkout-box order-confirmation-box">
+            <div class="order-confirmation-icon">✓</div>
+            <h2>Payment Confirmed</h2>
+            <p class="order-confirmation-copy">Your payment is confirmed and your top-up is being processed.</p>
+            <div class="order-confirmation-summary">
+                <div><span>Order</span><strong id="confirmedOrderId">—</strong></div>
+                <div><span>Payment</span><strong class="confirmation-paid">Paid ✓</strong></div>
+                <div><span>Delivery</span><strong id="confirmedDeliveryStatus">Processing</strong></div>
+            </div>
+            <p class="order-confirmation-note">You can safely close this page. Your order will remain available in My
+                Orders.</p>
+            <div class="order-confirmation-actions">
+                <a id="trackConfirmedOrderBtn" class="confirmation-primary-btn" href="orders.html">Track My Order</a>
+                <button type="button" id="continueShoppingBtn" class="confirmation-secondary-btn">Continue
+                    Shopping</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="complaintModal" class="checkout-modal" style="display: none;">
+
+        <div class="checkout-box chat-box">
+
+            <button type="button" class="close-complaint" aria-label="Close">&times;</button>
+
+            <h2>Chat with Support</h2>
+
+            <p class="complaint-order-ref"></p>
+
+            <div id="chatThread" class="chat-thread"></div>
+
+            <div class="chat-input-row">
+                <textarea id="chatMessageInput" rows="2" placeholder="Type your message..."></textarea>
+                <button type="button" id="sendChatBtn">Send</button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div id="toastContainer"></div>
+
+    <div class="trustpilot-widget" data-locale="en-US" data-template-id="56278e9abfbbba0bdcd568bc"
+        data-businessunit-id="6a90102a375fbf31a1fd8243" data-style-height="52px" data-style-width="100%"
+        data-token="4f1634c9-aa20-4d2d-b292-791c7e42b217">
+        <a href="https://www.trustpilot.com/review/hirostore.site" target="_blank" rel="noopener">Trustpilot</a>
+    </div>
+
+    <footer class="site-footer" aria-label="Legal and support links">
+        <p>&copy; 2026 HIRO OFFICIAL STORE. All rights reserved.</p>
+        <nav>
+            <a href="refund-policy.html">Refund &amp; Cancellation</a>
+            <a href="privacy-policy.html">Privacy Policy</a>
+            <a href="terms.html">Terms of Service</a>
+            <a href="mailto:support@hirostore.site">Contact Support</a>
+        </nav>
+    </footer>
+    <script type="text/javascript" src="//widget.trustpilot.com/bootstrap/v5/tp.widget.bootstrap.min.js" async></script>
+
+    <script src="https://js.paystack.co/v2/inline.js"></script>
+
+    <script src="app.js?v=20260914-paystack-server-init1" defer></script>
+
+<button type="button" class="hiro-floating-support" data-open-hiro-support aria-label="Chat with Hiro Store Support">
+    <span class="hiro-support-icon" aria-hidden="true">💬</span>
+    <span>Chat with Support</span>
+    <span class="hiro-support-status" aria-hidden="true"></span>
+</button>
+
+</body>
+
+</html>

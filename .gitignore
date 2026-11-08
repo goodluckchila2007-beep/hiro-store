@@ -1,0 +1,33 @@
+node_modules/
+storefront-next/node_modules/
+storefront-next/.next/
+.env
+.env.*.local
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+
+# Local databases and runtime data
+*.sqlite
+*.sqlite3
+*.log
+logs/
+uploads/
+storage/
+
+# Backups and temporary copies
+*.bak
+*.backup
+*.support-backup
+*.before-*
+
+# Build and generated files
+storefront-next/.next/
+storefront-next/tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
