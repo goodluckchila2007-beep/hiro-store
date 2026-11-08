@@ -202,6 +202,7 @@
                     <span class="nav-text">
                         Unmatched Payments
                     </span>
+                    <span class="nav-badge warning" id="navUnmatchedCount" style="display:none">0</span>
                 </button>
 
 
@@ -634,8 +635,8 @@
                             <strong id="dashboardRefundedValue">₦0</strong><small>Total value of refunded orders</small>
                         </button>
                         <button class="hiro-operation-card" data-section="unmatched" type="button">
-                            <span class="hiro-operation-icon">⌕</span><span class="hiro-operation-label">Payment reconciliation</span>
-                            <strong>Review</strong><small>Check unmatched Paystack payments</small>
+                            <span class="hiro-operation-icon">⌕</span><span class="hiro-operation-label">Unresolved payments</span>
+                            <strong id="dashboardUnmatchedPayments">0</strong><small>Successful payments needing order matching</small>
                         </button>
                     </div>
                 </div>
