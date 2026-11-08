@@ -6704,6 +6704,11 @@ app.get("/api/admin/analytics", requireAdmin, (req, res) => {
                 SUM(
                     CASE
                         WHEN amount_charged > 0
+                         AND status NOT IN (
+                            'Refunded',
+                            'Cancelled',
+                            'Failed'
+                         )
                         THEN 1
                         ELSE 0
                     END
