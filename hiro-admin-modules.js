@@ -75,7 +75,8 @@ module.exports = function registerHiroAdminModules({ app, db, requireAdmin, fina
     try {
       const pair=await Promise.all([fzrGet('/balance'),fzrGet('/transactions?page=1&limit=30').catch(e=>({error:e.message,items:[]}))]);
       const b=pair[0],t=pair[1],threshold=Number(getSetting('fzr_low_balance_threshold_usd','10'));
-      res.json({success:true,balance:Number(b.balance),currency:b.currency||'USD',threshold,lowBalance:Number(b.balance)<=threshold,transactions:Array.isArray(t.items)?t.items:[],transactionsWarning:t.error||null,checkedAt:new Date().toISOString()});
+      const failedItems=db.prepare("SELECT oi.id itemId,oi.order_id orderId,oi.title,oi.fulfillment_status status,oi.fulfillment_error error,oi.fzr_order_id fzrOrderId,o.email FROM order_items oi JOIN orders o ON o.order_id=oi.order_id WHERE o.amount_charged>0 AND o.status NOT IN ('Refunded','Cancelled') AND oi.fulfillment_status IN ('Failed','Review Required') ORDER BY oi.id DESC LIMIT 50").all();
+      res.json({success:true,balance:Number(b.balance),currency:b.currency||'USD',threshold,lowBalance:Number(b.balance)<=threshold,transactions:Array.isArray(t.items)?t.items:[],transactionsWarning:t.error||null,failedItems,checkedAt:new Date().toISOString()});
     } catch(e) {res.status(e.status||502).json({success:false,message:e.message||'Unable to retrieve FZR balance.'});}
   });
   app.patch('/api/admin/modules/fzr/threshold',requireAdmin,(req,res)=>{
