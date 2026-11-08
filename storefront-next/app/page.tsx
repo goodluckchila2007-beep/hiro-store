@@ -66,9 +66,14 @@ export default function HomePage() {
         const parsedFields = JSON.parse(savedFields);
         if (parsedFields && typeof parsedFields === 'object' && !Array.isArray(parsedFields)) setCartFields(parsedFields);
       }
-      if (new URLSearchParams(window.location.search).get('checkout') === '1') {
-        setCartOpen(true);
-        window.history.replaceState({}, '', window.location.pathname);
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('checkout') === '1') setCartOpen(true);
+      if (params.get('support') === '1') setSupportOpen(true);
+      if (params.has('checkout') || params.has('support')) {
+        params.delete('checkout');
+        params.delete('support');
+        const query = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : ''));
       }
     } catch { /* Ignore an invalid local cart and start with an empty bag. */ }
     setCartLoaded(true);
@@ -88,7 +93,7 @@ export default function HomePage() {
       .catch(() => undefined);
     fetch(`${API}/me`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
-      .then(data => { setAuthenticated(Boolean(data?.authenticated)); if (data?.user?.email) setEmail(data.user.email); if (data?.user?.phone) setPhone(data.user.phone); if (data?.authenticated) { fetch(`${API}/api/account/rewards`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(wallet => { setCoinBalance(Number(wallet?.coins?.balance || 0)); setCoinsEnabled(Boolean(wallet?.coins?.enabled)); }).catch(() => undefined); apiFetch('/api/account/wishlist', { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(saved => { if (Array.isArray(saved?.items)) setWishlistItems(saved.items); }).catch(() => undefined); fetch(`${API}/api/account/game-accounts`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(saved => { if (Array.isArray(saved?.accounts)) setSavedGameAccounts(saved.accounts); }).catch(() => undefined); } })
+      .then(data => { setAuthenticated(Boolean(data?.authenticated)); if (data?.user?.email) setEmail(data.user.email); if (data?.user?.phone) setPhone(data.user.phone); if (data?.authenticated) { if (new URLSearchParams(window.location.search).get('support') === '1') openSupport(); fetch(`${API}/api/account/rewards`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(wallet => { setCoinBalance(Number(wallet?.coins?.balance || 0)); setCoinsEnabled(Boolean(wallet?.coins?.enabled)); }).catch(() => undefined); apiFetch('/api/account/wishlist', { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(saved => { if (Array.isArray(saved?.items)) setWishlistItems(saved.items); }).catch(() => undefined); fetch(`${API}/api/account/game-accounts`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(saved => { if (Array.isArray(saved?.accounts)) setSavedGameAccounts(saved.accounts); }).catch(() => undefined); } })
       .catch(() => undefined);
   }, []);
 
