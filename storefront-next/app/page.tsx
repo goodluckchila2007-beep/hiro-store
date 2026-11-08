@@ -40,6 +40,11 @@ export default function HomePage() {
   const [supportOrderId, setSupportOrderId] = useState('');
   const [supportOrders, setSupportOrders] = useState<{ orderId: string }[]>([]);
   const [supportLoading, setSupportLoading] = useState(false);
+  const [supportConversationId, setSupportConversationId] = useState<number | null>(null);
+  const [supportMessages, setSupportMessages] = useState<{ sender_role: string; sender_name: string; message: string; created_at: string }[]>([]);
+  const [supportDraft, setSupportDraft] = useState('');
+  const [supportSending, setSupportSending] = useState(false);
+  const [supportStatus, setSupportStatus] = useState('Open');
 
   const [coinBalance, setCoinBalance] = useState(0);
   const [coinsEnabled, setCoinsEnabled] = useState(false);
@@ -218,30 +223,60 @@ export default function HomePage() {
 
   const supportOrderIssues = ['Order not received', 'Payment problem', 'Wrong Player ID / Server', 'Refund or failed order'];
 
+  async function refreshSupportConversation() {
+    const response = await fetch(`${API}/api/support/conversation`, { credentials: 'include', headers: { Accept: 'application/json' } });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) throw new Error(data.message || 'Unable to load your support conversation.');
+    setSupportConversationId(data.conversation?.id ? Number(data.conversation.id) : null);
+    setSupportStatus(data.conversation?.status || 'Open');
+    setSupportMessages(Array.isArray(data.messages) ? data.messages : []);
+  }
+
   async function openSupport() {
     setSupportOpen(true);
-    if (!authenticated || supportOrders.length || supportLoading) return;
+    if (!authenticated || supportLoading) return;
     setSupportLoading(true);
     try {
-      const response = await fetch(`${API}/orders`, { credentials: 'include', headers: { Accept: 'application/json' } });
-      const data = await response.json().catch(() => ({}));
-      if (response.ok && Array.isArray(data.orders)) {
-        setSupportOrders(data.orders.slice(0, 8).map((order: any) => ({ orderId: String(order.orderId || '') })).filter((order: { orderId: string }) => order.orderId));
-      }
-    } catch {
-      // Customers can still enter an order ID manually.
+      await Promise.all([
+        refreshSupportConversation(),
+        supportOrders.length ? Promise.resolve() : fetch(`${API}/orders`, { credentials: 'include', headers: { Accept: 'application/json' } }).then(async response => {
+          const data = await response.json().catch(() => ({}));
+          if (response.ok && Array.isArray(data.orders)) setSupportOrders(data.orders.slice(0, 8).map((order: any) => ({ orderId: String(order.orderId || '') })).filter((order: { orderId: string }) => order.orderId));
+        })
+      ]);
+    } catch (error) {
+      setGlobalNotice(error instanceof Error ? error.message : 'Unable to load support.');
     } finally {
       setSupportLoading(false);
     }
   }
 
-  function contactSupport() {
-    if (!supportIssue) return;
-    const orderId = supportOrderIssues.includes(supportIssue) ? supportOrderId.trim() : '';
-    let message = `Hi Hiro Store Support, I need help with: ${supportIssue}.`;
-    if (orderId) message += `\n\nOrder ID: ${orderId}`;
-    message += '\n\nPlease assist me. Thank you.';
-    window.open(`https://wa.me/2347057484714?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+  async function sendSupportMessage() {
+    if (!authenticated || supportSending) return;
+    const draft = supportDraft.trim();
+    if (!draft && !supportMessages.length && !supportIssue) return;
+    let message = draft;
+    if (!supportMessages.length) {
+      const orderId = supportOrderIssues.includes(supportIssue) ? supportOrderId.trim() : '';
+      message = `Topic: ${supportIssue || 'General enquiry'}${orderId ? `\\nOrder ID: ${orderId}` : ''}\\n\\n${draft || 'Please help me with this issue.'}`;
+    }
+    setSupportSending(true);
+    try {
+      const response = await fetch(`${API}/api/support/conversation`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ message, orderId: supportOrderId.trim() || null })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.message || 'Message could not be sent.');
+      setSupportDraft('');
+      setSupportIssue('');
+      await refreshSupportConversation();
+    } catch (error) {
+      setGlobalNotice(error instanceof Error ? error.message : 'Message could not be sent.');
+    } finally {
+      setSupportSending(false);
+    }
   }
 
   return <>
@@ -321,31 +356,31 @@ export default function HomePage() {
     {supportOpen && <div className="hiro-support-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setSupportOpen(false); }}>
       <section className="hiro-support-panel" role="dialog" aria-modal="true" aria-labelledby="hiro-support-title">
         <button type="button" className="hiro-support-close" onClick={() => setSupportOpen(false)} aria-label="Close support">×</button>
-        <p className="hiro-support-kicker">WE'RE HERE TO HELP</p>
-        <h2 id="hiro-support-title">Hiro Support</h2>
-        <p className="hiro-support-intro">What do you need help with?</p>
-        <div className="hiro-support-choices">
-          {[
-            ['Order not received', '📦', "My top-up hasn't arrived"],
-            ['Payment problem', '💳', 'Payment failed or I was charged'],
-            ['Wrong Player ID / Server', '🎮', 'I entered incorrect game details'],
-            ['Refund or failed order', '↩', 'I need help with a failed transaction'],
-            ['Something else', '💬', 'Talk to customer support']
-          ].map(([issue, icon, description]) => <button type="button" key={issue} className={`hiro-support-choice ${supportIssue === issue ? 'selected' : ''}`} onClick={() => setSupportIssue(issue)}>
-            <span>{icon}</span><span><strong>{issue}</strong><small>{description}</small></span><span className="hiro-support-check">{supportIssue === issue ? '✓' : ''}</span>
-          </button>)}
-        </div>
-        {supportOrderIssues.includes(supportIssue) && <div className="hiro-support-order">
-          <label htmlFor="hiro-support-order">Order ID <span>(optional)</span></label>
-          {supportOrders.length > 0 && <select aria-label="Select a recent order" value={supportOrderId} onChange={event => setSupportOrderId(event.target.value)}>
-            <option value="">Select one of your recent orders</option>
-            {supportOrders.map(order => <option key={order.orderId} value={order.orderId}>{order.orderId}</option>)}
-          </select>}
-          <input id="hiro-support-order" value={supportOrderId} onChange={event => setSupportOrderId(event.target.value)} placeholder="Or enter an order ID, e.g. HIRO-12345" maxLength={80} />
-          {supportLoading && <small>Loading your recent orders…</small>}
-        </div>}
-        <button type="button" className="hiro-support-submit" disabled={!supportIssue} onClick={contactSupport}>Contact Support on WhatsApp ↗</button>
-        <p className="hiro-support-note">WhatsApp opens with your issue details filled in. You can review the message and press Send.</p>
+        <p className="hiro-support-kicker">HIRO STORE CUSTOMER CARE</p>
+        <h2 id="hiro-support-title">Support chat</h2>
+        {!authenticated ? <div className="hiro-support-note">Please <a href="/account">sign in to your Hiro account</a> to start a support conversation and keep your messages together.</div> : <>
+          <div className="hiro-support-chat-status"><span className={supportStatus === 'Open' ? 'is-open' : ''}>{supportStatus}</span>{supportConversationId ? ` · Conversation #${supportConversationId}` : ' · New conversation'}</div>
+          <div className="hiro-support-chat-messages" aria-live="polite">
+            {supportLoading ? <p>Loading your conversation…</p> : supportMessages.length ? supportMessages.map((message, index) => <article className={`hiro-support-message ${message.sender_role === 'customer' ? 'mine' : 'theirs'}`} key={`${message.created_at}-${index}`}><strong>{message.sender_role === 'customer' ? 'You' : 'Hiro Store Support'}</strong><p>{message.message}</p><time>{new Date(message.created_at).toLocaleString()}</time></article>) : <p className="hiro-support-empty">No messages yet. Choose a topic and send us a message to start.</p>}
+          </div>
+          {!supportMessages.length && <div className="hiro-support-choices">
+            {[
+              ['Order not received', '📦', "My top-up hasn't arrived"],
+              ['Payment problem', '💳', 'Payment failed or I was charged'],
+              ['Wrong Player ID / Server', '🎮', 'I entered incorrect game details'],
+              ['Refund or failed order', '↩', 'I need help with a failed transaction'],
+              ['Something else', '💬', 'A general question']
+            ].map(([issue, icon, description]) => <button type="button" key={issue} className={`hiro-support-choice ${supportIssue === issue ? 'selected' : ''}`} onClick={() => setSupportIssue(issue)}><span>{icon}</span><span><strong>{issue}</strong><small>{description}</small></span><span className="hiro-support-check">{supportIssue === issue ? '✓' : ''}</span></button>)}
+          </div>}
+          {!supportMessages.length && supportOrderIssues.includes(supportIssue) && <div className="hiro-support-order">
+            <label htmlFor="hiro-support-order">Order ID <span>(optional)</span></label>
+            {supportOrders.length > 0 && <select aria-label="Select a recent order" value={supportOrderId} onChange={event => setSupportOrderId(event.target.value)}><option value="">Select a recent order</option>{supportOrders.map(order => <option key={order.orderId} value={order.orderId}>{order.orderId}</option>)}</select>}
+            <input id="hiro-support-order" value={supportOrderId} onChange={event => setSupportOrderId(event.target.value)} placeholder="Enter an order ID" maxLength={80} />
+          </div>}
+          <textarea className="hiro-support-chat-input" value={supportDraft} onChange={event => setSupportDraft(event.target.value)} placeholder="Write your message…" rows={3} maxLength={3000} />
+          <button type="button" className="hiro-support-submit" disabled={supportSending || (!supportDraft.trim() && (supportMessages.length > 0 || !supportIssue))} onClick={sendSupportMessage}>{supportSending ? 'Sending…' : 'Send message ↗'}</button>
+          {supportStatus === 'Resolved' && <p className="hiro-support-note">This conversation is resolved. Send a new message to open a new conversation.</p>}
+        </>}
       </section>
     </div>}
 
