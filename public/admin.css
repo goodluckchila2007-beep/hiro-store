@@ -4814,3 +4814,21 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(52,120,246,.55);o
 .hiro-operation-card small{font-size:10px;line-height:1.45;color:#8294aa}
 @media(max-width:1000px){.hiro-operations-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.hiro-operations-pulse{padding:15px}.hiro-operations-grid{grid-template-columns:1fr 1fr}.hiro-operation-card{padding:12px}.hiro-operation-card strong{font-size:20px}}
+
+
+/* Hiro Store — expanded admin modules */
+.admin-module-content{display:grid;gap:18px;margin-top:18px}
+.admin-module-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px}
+.admin-module-stats article,.admin-module-panel{background:var(--admin-card,#fff);border:1px solid var(--admin-border,#e8e8ec);border-radius:14px;padding:18px;min-width:0}
+.admin-module-stats article{display:grid;gap:7px}
+.admin-module-stats article span{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted,#737784);text-transform:uppercase}
+.admin-module-stats article strong{font-size:24px;line-height:1.2;color:var(--text,#191b22);overflow-wrap:anywhere}
+.admin-module-stats article small{font-size:12px;color:var(--muted,#737784)}
+.admin-module-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.admin-module-panel h3{margin:0 0 14px;font-size:16px}
+.admin-module-note{padding:13px 15px;border-radius:10px;background:#f5f7fb;color:#51596a;font-size:13px;line-height:1.6}
+.admin-module-error{padding:14px;border-radius:10px;background:#fff1f0;color:#a32920}
+.admin-module-panel textarea{display:block;width:100%;max-width:720px;margin:10px 0;padding:12px;border:1px solid var(--admin-border,#ddd);border-radius:9px}
+.admin-module-panel input{padding:9px 12px;border:1px solid var(--admin-border,#ddd);border-radius:8px;max-width:180px}
+.admin-module-panel .admin-secondary-btn{margin-top:10px}
+@media(max-width:760px){.admin-module-grid{grid-template-columns:1fr}.admin-module-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-module-stats article{padding:13px}.admin-module-stats article strong{font-size:20px}}
