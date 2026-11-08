@@ -1409,7 +1409,7 @@ db.exec(`
 const rewardSettingDefaults = {
     coins_enabled: "0",
     coin_earn_per_100_ngn: "0",
-    coin_value_ngn: "0",
+    coin_value_ngn: "1",
     coin_max_redemption_percent: "0",
     coins_stack_with_coupons: "0"
 };
@@ -5681,7 +5681,7 @@ app.patch("/api/admin/rewards/settings", requireAdmin, (req, res) => {
     const value = Number(body.valueNgn);
     const maxPercent = Number(body.maxRedemptionPercent);
     if (![earn, value, maxPercent].every(Number.isFinite) || earn < 0 || value < 0 || maxPercent < 0 || maxPercent > 100) return res.status(400).json({ success: false, message: "Enter valid non-negative reward values; redemption percentage cannot exceed 100." });
-    if (body.enabled && (earn <= 0 || value < 1 || maxPercent <= 0)) return res.status(400).json({ success: false, message: "Configure earning rate, coin value and redemption cap before enabling Hiro Coins." });
+    if (body.enabled && (value < 1 || maxPercent <= 0)) return res.status(400).json({ success: false, message: "Configure the coin value and redemption cap before enabling Hiro Coins." });
     setSetting("coins_enabled", body.enabled ? "1" : "0");
     setSetting("coin_earn_per_100_ngn", earn);
     setSetting("coin_value_ngn", value);
