@@ -170,3 +170,11 @@
 .hiro-support-message time{display:block;color:var(--muted);font-size:10px}
 .hiro-support-chat-input{display:block;width:100%;resize:vertical;min-height:76px;margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--white);font:inherit}
 .hiro-support-note a{color:var(--cyan);text-decoration:underline}
+
+/* TRUSTPILOT STOREFRONT SECTION */
+.hiro-trustpilot-section{max-width:1180px;margin:0 auto;padding:76px 24px 84px;text-align:center}
+.hiro-trustpilot-section>.section-kicker{margin-bottom:12px}
+.hiro-trustpilot-section h2{font-family:var(--display);font-size:clamp(32px,5vw,54px);line-height:1.04;margin:0}
+.hiro-trustpilot-section h2 em{color:var(--cyan);font-style:normal}
+.hiro-trustpilot-section>p{color:var(--muted);margin:14px auto 24px}
+.hiro-trustpilot-section .trustpilot-widget{max-width:620px;margin:0 auto;min-height:52px}
