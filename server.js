@@ -2578,6 +2578,12 @@ app.post("/login", authLimiter, async (req, res) => {
 
         req.session.userId = user.id;
         req.session.userRole = user.role;
+        if (user.role === "admin") {
+            try {
+                db.prepare("INSERT INTO admin_activity_log(admin_id, admin_email, action, method, path, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+                    .run(user.id, user.email, "Admin login", "POST", "/login", new Date().toISOString());
+            } catch (auditError) { console.error("Admin login audit write failed:", auditError.message); }
+        }
 
         console.log("LOGIN OK:", { userId: user.id, role: user.role });
 
