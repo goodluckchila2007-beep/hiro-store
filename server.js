@@ -1416,6 +1416,7 @@ const rewardSettingDefaults = {
 for (const [key, value] of Object.entries(rewardSettingDefaults)) {
     if (getSetting(key, null) === null) setSetting(key, value);
 }
+if (Number(getSetting("coin_value_ngn", "0")) <= 0) setSetting("coin_value_ngn", "1");
 
 const rewardsLedger = createRewardsLedger({ db, getSetting, getCategory });
 const { getCoinBalance, evaluateCheckoutRewards, commitCheckoutRewards, awardCoinsForCompletedOrder, reverseOrderRewards } = rewardsLedger;
