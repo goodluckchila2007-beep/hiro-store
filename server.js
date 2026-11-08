@@ -3279,7 +3279,7 @@ app.get("/complaints/by-order/:orderId", requireLogin, (req, res) => {
    SUPPORT CHAT — GET MY ACTIVE CONVERSATION (customer)
 ========================================================= */
 
-app.get("/api/support/conversation", requireLogin, (req, res) => {
+app.get("/api/support/conversation", requireLogin, requireCustomerFeature("support"), (req, res) => {
     try {
         const conversation = db.prepare(`
             SELECT id, order_id, status, refund_status, created_at
@@ -3320,7 +3320,7 @@ app.get("/api/support/conversation", requireLogin, (req, res) => {
    SUPPORT CHAT — SEND MESSAGE (customer)
 ========================================================= */
 
-app.post("/api/support/conversation", requireLogin, (req, res) => {
+app.post("/api/support/conversation", requireLogin, requireCustomerFeature("support"), (req, res) => {
     try {
         const cleanMessage = String(req.body?.message || "").trim();
         const orderId = req.body?.orderId ? String(req.body.orderId).trim() : null;
@@ -5132,7 +5132,7 @@ function computeOrderDisplayStatus(order, items) {
 /* =========================================================
    CUSTOMER — WISHLIST
 ========================================================= */
-app.get("/api/account/wishlist", requireLogin, (req, res) => {
+app.get("/api/account/wishlist", requireLogin, requireCustomerFeature("wishlist"), (req, res) => {
     const items = db.prepare(`SELECT w.id, w.category_id AS categoryId, w.offer_id AS offerId,
         p.title, p.retail_price_ngn AS retailPriceNgn, p.available, w.created_at AS createdAt
         FROM wishlists w LEFT JOIN products p ON p.category_id = w.category_id AND p.offer_id = w.offer_id
@@ -5140,7 +5140,7 @@ app.get("/api/account/wishlist", requireLogin, (req, res) => {
     return res.json({ success: true, items });
 });
 
-app.post("/api/account/wishlist", requireLogin, (req, res) => {
+app.post("/api/account/wishlist", requireLogin, requireCustomerFeature("wishlist"), (req, res) => {
     const categoryId = String(req.body?.categoryId || "").trim();
     const offerId = String(req.body?.offerId || "").trim();
     if (!getCategory(categoryId) || !offerId) return res.status(400).json({ success: false, message: "Choose a valid game offer." });
@@ -5151,7 +5151,7 @@ app.post("/api/account/wishlist", requireLogin, (req, res) => {
     return res.json({ success: true, message: "Added to your wishlist." });
 });
 
-app.delete("/api/account/wishlist/:id", requireLogin, (req, res) => {
+app.delete("/api/account/wishlist/:id", requireLogin, requireCustomerFeature("wishlist"), (req, res) => {
     const id = Number(req.params.id);
     const result = db.prepare(`DELETE FROM wishlists WHERE id = ? AND user_id = ?`).run(id, req.session.userId);
     if (!result.changes) return res.status(404).json({ success: false, message: "Wishlist item not found." });
@@ -5161,13 +5161,13 @@ app.delete("/api/account/wishlist/:id", requireLogin, (req, res) => {
 /* =========================================================
    CUSTOMER — SAVED GAME ACCOUNTS
 ========================================================= */
-app.get("/api/account/game-accounts", requireLogin, (req, res) => {
+app.get("/api/account/game-accounts", requireLogin, requireCustomerFeature("game_accounts"), (req, res) => {
     const accounts = db.prepare(`SELECT id, category_id AS categoryId, label, fields_json AS fieldsJson, created_at AS createdAt, updated_at AS updatedAt
         FROM saved_game_accounts WHERE user_id = ? ORDER BY updated_at DESC`).all(req.session.userId).map(account => ({ ...account, fields: JSON.parse(account.fieldsJson || "{}") }));
     return res.json({ success: true, accounts });
 });
 
-app.post("/api/account/game-accounts", requireLogin, (req, res) => {
+app.post("/api/account/game-accounts", requireLogin, requireCustomerFeature("game_accounts"), (req, res) => {
     try {
         const categoryId = String(req.body?.categoryId || "").trim();
         const label = String(req.body?.label || "").trim().slice(0, 60);
@@ -5182,7 +5182,7 @@ app.post("/api/account/game-accounts", requireLogin, (req, res) => {
     }
 });
 
-app.patch("/api/account/game-accounts/:id", requireLogin, (req, res) => {
+app.patch("/api/account/game-accounts/:id", requireLogin, requireCustomerFeature("game_accounts"), (req, res) => {
     try {
         const id = Number(req.params.id);
         const existing = db.prepare(`SELECT * FROM saved_game_accounts WHERE id = ? AND user_id = ?`).get(id, req.session.userId);
@@ -5198,7 +5198,7 @@ app.patch("/api/account/game-accounts/:id", requireLogin, (req, res) => {
     }
 });
 
-app.delete("/api/account/game-accounts/:id", requireLogin, (req, res) => {
+app.delete("/api/account/game-accounts/:id", requireLogin, requireCustomerFeature("game_accounts"), (req, res) => {
     const id = Number(req.params.id);
     const result = db.prepare(`DELETE FROM saved_game_accounts WHERE id = ? AND user_id = ?`).run(id, req.session.userId);
     if (!result.changes) return res.status(404).json({ success: false, message: "Saved game account not found." });
@@ -5208,7 +5208,7 @@ app.delete("/api/account/game-accounts/:id", requireLogin, (req, res) => {
 /* =========================================================
    CUSTOMER — HIRO COINS + COUPON WALLET
 ========================================================= */
-app.get("/api/account/rewards", requireLogin, (req, res) => {
+app.get("/api/account/rewards", requireLogin, requireCustomerFeature("hiro_coins"), (req, res) => {
     try {
         const transactions = db.prepare(`SELECT amount, kind, description, order_id AS orderId, created_at AS createdAt
             FROM coin_transactions WHERE user_id = ? ORDER BY id DESC LIMIT 50`).all(req.session.userId);
@@ -7435,11 +7435,14 @@ function hiroGetCustomerFeatures(userId) {
  * Unconfigured feature rows default to enabled to preserve existing access.
  */
 function requireCustomerFeature(feature) {
-    if (!HIRO_CUSTOMER_FEATURES.includes(feature)) {
-        throw new Error("Unknown customer feature: " + feature);
-    }
-
     return function customerFeatureAccess(req, res, next) {
+        if (!HIRO_CUSTOMER_FEATURES.includes(feature)) {
+            return res.status(500).json({
+                success: false,
+                message: "Customer feature configuration error."
+            });
+        }
+
         if (!req.session || !req.session.userId) {
             return res.status(401).json({
                 success: false,
