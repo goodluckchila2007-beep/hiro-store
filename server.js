@@ -3328,6 +3328,12 @@ app.post("/api/support/conversation", requireLogin, (req, res) => {
         if (!cleanMessage) {
             return res.status(400).json({ success: false, message: "Message cannot be empty." });
         }
+        if (cleanMessage.length > 3000) return res.status(400).json({ success: false, message: "Message must be 3,000 characters or fewer." });
+        if (orderId) {
+            const relatedOrder = db.prepare(`SELECT order_id, user_id FROM orders WHERE order_id = ?`).get(orderId);
+            if (!relatedOrder) return res.status(404).json({ success: false, message: "The linked order was not found." });
+            if (Number(relatedOrder.user_id) !== Number(req.session.userId)) return res.status(403).json({ success: false, message: "You can only link your own orders to support." });
+        }
 
         const now = new Date().toISOString();
         const currentUser = db.prepare(`SELECT name FROM users WHERE id = ?`).get(req.session.userId);
@@ -3343,7 +3349,7 @@ app.post("/api/support/conversation", requireLogin, (req, res) => {
 
         if (conversation) {
             conversationId = conversation.id;
-            db.prepare(`UPDATE support_conversations SET updated_at = ? WHERE id = ?`).run(now, conversationId);
+            db.prepare(`UPDATE support_conversations SET updated_at = ?, order_id = COALESCE(order_id, ?) WHERE id = ?`).run(now, orderId, conversationId);
         } else {
             const result = db.prepare(`
                 INSERT INTO support_conversations (user_id, order_id, status, refund_status, created_at, updated_at)
