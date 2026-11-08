@@ -1843,11 +1843,11 @@
                     <div class="settings-panel">
                         <div class="settings-block">
                             <h3>Hiro Coins settings</h3>
-                            <p class="settings-block-description">Coin values are deliberately disabled until you configure the earning rate, naira value and redemption cap. This prevents unapproved discounts from affecting margins.</p>
+                            <p class="settings-block-description">1 Hiro Coin = ₦1. Every customer receives a one-time 5 HC welcome bonus after their first successfully completed purchase. This bonus is not connected to Trustpilot reviews. Set a redemption cap before enabling coin redemption.</p>
                             <form id="coinSettingsForm" class="promotion-form">
                                 <div class="settings-row"><div><strong>Enable Hiro Coins</strong><p>Allow customers to earn and redeem coins.</p></div><label class="toggle-switch"><input type="checkbox" id="coinEnabledToggle"><span class="toggle-slider"></span></label></div>
                                 <label>Coins earned per ₦100 paid<input id="coinEarnRateInput" type="number" min="0" step="0.01" value="0"></label>
-                                <label>Value of one coin in naira (₦)<input id="coinValueInput" type="number" min="0" step="0.01" value="0"></label>
+                                <label>Value of one coin in naira (₦)<input id="coinValueInput" type="number" min="0" step="0.01" value="1"></label>
                                 <label>Maximum order discount from coins (%)<input id="coinMaxPercentInput" type="number" min="0" max="100" step="1" value="0"></label>
                                 <div class="settings-row"><div><strong>Allow coupon + coin stacking</strong><p>Customers can apply a coupon and redeem coins on one order.</p></div><label class="toggle-switch"><input type="checkbox" id="coinStackToggle"><span class="toggle-slider"></span></label></div>
                                 <button type="submit" class="btn-retry">Save Hiro Coins settings</button>
