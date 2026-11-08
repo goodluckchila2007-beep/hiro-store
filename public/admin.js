@@ -5275,6 +5275,17 @@
             const payments =
                 data.payments || [];
 
+            const unresolvedCount = payments.filter(
+                payment => payment.resolutionStatus === "Unresolved"
+            ).length;
+            setText("dashboardUnmatchedPayments", unresolvedCount);
+
+            const unmatchedBadge = document.getElementById("navUnmatchedCount");
+            if (unmatchedBadge) {
+                unmatchedBadge.textContent = String(unresolvedCount);
+                unmatchedBadge.style.display = unresolvedCount > 0 ? "inline-flex" : "none";
+            }
+
             if (!payments.length) {
 
                 container.innerHTML = `
