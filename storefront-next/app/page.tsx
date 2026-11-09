@@ -270,7 +270,7 @@ export default function HomePage() {
     }
     setSupportSending(true);
     try {
-      const response = await fetch(`${API}/api/support/conversation`, {
+      const response = await apiFetch('/api/support/conversation', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ message, orderId: supportOrderId.trim() || null })
