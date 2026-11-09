@@ -4832,3 +4832,52 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(52,120,246,.55);o
 .admin-module-panel input{padding:9px 12px;border:1px solid var(--admin-border,#ddd);border-radius:8px;max-width:180px}
 .admin-module-panel .admin-secondary-btn{margin-top:10px}
 @media(max-width:760px){.admin-module-grid{grid-template-columns:1fr}.admin-module-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-module-stats article{padding:13px}.admin-module-stats article strong{font-size:20px}}
+
+
+/* Hiro Store admin modules — match the existing navy / blue / red dashboard */
+.admin-module-stats article,
+.admin-module-panel {
+    background: linear-gradient(145deg, rgba(17,34,59,.96), rgba(12,24,43,.98));
+    border: 1px solid rgba(83,130,210,.24);
+    color: #f5f7fb;
+    box-shadow: 0 14px 34px rgba(0,0,0,.16);
+}
+.admin-module-stats article span { color: #9fb8df; }
+.admin-module-stats article strong { color: #f5f7fb; }
+.admin-module-stats article small { color: #9eafc5; }
+.admin-module-panel h3 { color: #eaf1ff; }
+.admin-module-note {
+    background: rgba(52,120,246,.09);
+    border: 1px solid rgba(83,130,210,.2);
+    color: #b8c9e3;
+}
+.admin-module-error {
+    background: rgba(239,64,86,.12);
+    border: 1px solid rgba(239,64,86,.28);
+    color: #ff9aa7;
+}
+.admin-module-panel textarea,
+.admin-module-panel input {
+    background: #0b1629;
+    border: 1px solid rgba(82,132,232,.3);
+    color: #f5f7fb;
+}
+.admin-module-panel textarea::placeholder,
+.admin-module-panel input::placeholder { color: #8294aa; }
+.admin-module-panel textarea:focus,
+.admin-module-panel input:focus {
+    outline: 2px solid rgba(52,120,246,.5);
+    outline-offset: 1px;
+    border-color: #3478f6;
+}
+.admin-module-panel .admin-secondary-btn {
+    background: rgba(52,120,246,.14);
+    border: 1px solid rgba(83,130,210,.35);
+    color: #dce8ff;
+    border-radius: 9px;
+    padding: 9px 13px;
+}
+.admin-module-panel .admin-secondary-btn:hover {
+    background: rgba(52,120,246,.23);
+    border-color: rgba(83,130,210,.6);
+}
