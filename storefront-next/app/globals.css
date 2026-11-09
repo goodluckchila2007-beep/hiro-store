@@ -187,3 +187,10 @@
 .hiro-reward-modal p strong{color:var(--cyan)}
 .hiro-reward-modal .text-link{display:inline-block;margin:8px 0 20px;color:var(--cyan)}
 .hiro-reward-modal .primary-btn{display:block;width:100%;border:0;cursor:pointer}
+
+/* Product availability is visible to customers, not hidden from the catalogue. */
+.availability-tag{display:inline-flex;align-items:center;border-radius:99px;padding:5px 8px;font:8px var(--mono);letter-spacing:.8px;border:1px solid rgba(215,255,101,.28);color:var(--lime);background:rgba(215,255,101,.07)}
+.availability-tag.unavailable{color:#ff9aa4;border-color:rgba(255,109,128,.35);background:rgba(255,109,128,.09)}
+.offer-card.is-unavailable{border-color:rgba(255,109,128,.24);background:linear-gradient(150deg,#171c27,#10141d)}
+.offer-card.is-unavailable h3,.offer-card.is-unavailable .offer-price{color:#9ba4b2}
+.buy-btn:disabled{cursor:not-allowed;opacity:.55;border-color:rgba(255,109,128,.3);color:#ff9aa4;background:rgba(255,109,128,.06)}
