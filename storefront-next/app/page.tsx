@@ -136,6 +136,11 @@ export default function HomePage() {
   const active = categories.find(category => category.id === activeCategory) || launchCategories[4];
 
   function openCheckout(product: Product) {
+    if (Number(product.available) !== 1 || Number(product.retailPriceNgn) <= 0) {
+      setNotice('This offer is currently unavailable. Please choose another offer.');
+      setCartOpen(true);
+      return;
+    }
     const key = `${active.id}:${product.offerId}`;
     setCart(current => {
       const existing = current.find(line => line.key === key);
@@ -270,7 +275,7 @@ export default function HomePage() {
     }
     setSupportSending(true);
     try {
-      const response = await fetch(`${API}/api/support/conversation`, {
+      const response = await apiFetch('/api/support/conversation', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ message, orderId: supportOrderId.trim() || null })
@@ -337,10 +342,13 @@ export default function HomePage() {
           <div className="section-heading compact"><div><div className="section-kicker">SELECTED REGION / 02</div><h2>{active.name}<span className="region-chip heading-chip">{active.region}</span></h2><p className="restriction-note">{active.restriction}</p></div><div className="offer-caption">PRICES DISPLAYED IN<br /><b>NIGERIAN NAIRA (₦)</b></div></div>
           <div className="offers-grid">
             {loadingProducts && <div className="empty-state">Loading available offers…</div>}
-            {!loadingProducts && products.filter(product => product.available && Number(product.retailPriceNgn) > 0).map(product => <article className="offer-card" key={`${product.categoryId}-${product.offerId}`}>
-              <div className="offer-card-top"><span className="offer-tag">{active.region} REGION</span><span className="offer-spark">✦</span></div><h3>{product.title}</h3><p className="offer-restriction">{product.regionRestriction || product.supplierNote || active.restriction}</p><div className="offer-price">{money(Number(product.retailPriceNgn))}</div><div className="offer-actions"><button className="wishlist-btn" aria-label="Save to wishlist" aria-pressed={wishlistItems.some(item => item.categoryId === active.id && item.offerId === product.offerId)} onClick={() => toggleWishlist(product)}>{wishlistItems.some(item => item.categoryId === active.id && item.offerId === product.offerId) ? '♥' : '♡'}</button><button className="buy-btn" onClick={() => openCheckout(product)}>Add to bag <span>↗</span></button></div>
-            </article>)}
-            {!loadingProducts && products.filter(product => product.available && Number(product.retailPriceNgn) > 0).length === 0 && <div className="empty-state wide">Offers for this region will appear here as they are activated and priced. Choose another region above to explore.</div>}
+            {!loadingProducts && products.map(product => {
+              const isAvailable = Number(product.available) === 1 && Number(product.retailPriceNgn) > 0;
+              return <article className={`offer-card ${isAvailable ? '' : 'is-unavailable'}`} key={`${product.categoryId}-${product.offerId}`}>
+                <div className="offer-card-top"><span className="offer-tag">{active.region} REGION</span><span className={`availability-tag ${isAvailable ? 'available' : 'unavailable'}`}>{isAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}</span></div><h3>{product.title}</h3><p className="offer-restriction">{product.regionRestriction || product.supplierNote || active.restriction}</p><div className="offer-price">{Number(product.retailPriceNgn) > 0 ? money(Number(product.retailPriceNgn)) : 'Price unavailable'}</div><div className="offer-actions"><button className="wishlist-btn" aria-label="Save to wishlist" aria-pressed={wishlistItems.some(item => item.categoryId === active.id && item.offerId === product.offerId)} onClick={() => toggleWishlist(product)}> {wishlistItems.some(item => item.categoryId === active.id && item.offerId === product.offerId) ? '♥' : '♡'}</button><button className="buy-btn" disabled={!isAvailable} onClick={() => openCheckout(product)}>{isAvailable ? 'Add to bag' : 'Currently unavailable'} <span>↗</span></button></div>
+              </article>;
+            })}
+            {!loadingProducts && products.length === 0 && <div className="empty-state wide">No offers are listed for this region yet. Choose another region above to explore.</div>}
           </div>
         </section>
 
