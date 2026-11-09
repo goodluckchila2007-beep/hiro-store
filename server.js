@@ -3872,29 +3872,6 @@ app.post(
                 LIMIT 1
             `);
 
-            // Give customers a clear message when a product in their saved cart
-            // has since been disabled or lost its selling price.
-            const unavailableItems = rawItems.map(item => {
-                const offerId = String(item?.offerId || "").trim();
-                const categoryId = String(item?.categoryId || "mobile_legends_global").trim();
-                if (!offerId || !getCategory(categoryId)) return null;
-                const product = getProduct.get(offerId, categoryId);
-                if (!product) return null;
-                const reasons = [];
-                if (!Number(product.available)) reasons.push("supplier availability has changed");
-                if (Math.round(Number(product.retail_price_ngn || 0)) <= 0) reasons.push("selling price is not set");
-                return reasons.length ? { title: product.title, reason: reasons.join(" and ") } : null;
-            }).filter(Boolean);
-
-            if (unavailableItems.length) {
-                const titles = [...new Set(unavailableItems.map(item => item.title))];
-                return res.status(409).json({
-                    success: false,
-                    unavailableItems,
-                    message: `${titles.join(", ")} ${titles.length === 1 ? "is" : "are"} currently unavailable. Please remove ${titles.length === 1 ? "it" : "them"} from your bag and choose another offer.`
-                });
-            }
-
             const cleanItems = rawItems
                 .map(item => {
 
