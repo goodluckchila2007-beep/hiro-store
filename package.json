@@ -2,11 +2,12 @@
   "$schema": "https://json.schemastore.org/package.json",
   "name": "server",
   "version": "1.0.0",
-  "description": "",
+  "description": "Hiro Store digital goods and game top-up platform",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\"",
-    "start": "node server.js"
+    "test": "npm run check",
+    "start": "node server.js",
+    "check": "node --check server.js && node --check src/database.js && node --check src/services/fzr.js && node --check src/routes/auth.js && node --check src/routes/support.js && node --check src/routes/store.js && node --check src/routes/orders.js && node --check src/routes/reconciliation.js && node --check src/routes/admin.js && node --check src/routes/admin-settings.js && node --check src/routes/admin-fulfillment.js && node --check src/routes/admin-analytics.js && node --check src/routes/admin-management.js"
   },
   "keywords": [],
   "author": "",
