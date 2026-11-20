@@ -52,7 +52,7 @@ module.exports = function createFzrService({ app, db, axios, getSetting, setSett
     console.log("✅ /api/validate-player route registered");
 
     // Supplier costs persist across restarts; catalog seeds only insert missing products.
-    const finance = require("./hiro-finance").createFinance({
+    const finance = require("../../hiro-finance").createFinance({
         db, axios, getSetting, setSetting,
         exchangeRateFallback: FZR_EXCHANGE_RATE,
         apiKey: process.env.FZR_API_KEY,
