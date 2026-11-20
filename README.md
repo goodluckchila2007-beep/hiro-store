@@ -1,122 +1,59 @@
 # Hiro Store
 
-A full-stack digital goods e-commerce platform built for selling game top-ups and digital products.
+Hiro Store is a digital-goods storefront for game top-ups and related products. Customers can create accounts, browse products, validate player details, pay through Paystack, and track orders.
 
-## 🚀 Overview
+## Stack
 
-Hiro Store is a web-based digital store that allows customers to:
+- **Frontend:** HTML, CSS and browser JavaScript
+- **Backend:** Node.js and Express
+- **Database:** SQLite with better-sqlite3
+- **Authentication:** express-session and bcrypt
+- **Payments:** Paystack
+- **Supplier fulfillment:** FZR Cards API
 
-- Create an account
-- Log in securely
-- Browse digital products
-- Enter and verify game player information
-- Make payments through Paystack
-- View their order history
-- Track order information
-
-The backend uses Node.js and Express, with SQLite for persistent data storage.
-
-## 📸 Screenshots
-
-### Home Page
-
-![Hiro Store Home Page](img/screenshot-home.png)
-
-### Store / Products
-
-![Hiro Store Store Page](img/screenshot-store.png)
-
-### Customer Login
-
-![Hiro Store Login](img/screenshot-login.png)
-
-### Order History
-
-![Hiro Store Orders](img/screenshot-orders.png)
-
-## ✨ Features
-
-
-### Customer Accounts
-- Customer registration
-- Secure password hashing with bcrypt
-- Customer login
-- Session-based authentication
-- Logout
-- Current-user authentication checks
-
-### Payments
-- Paystack payment verification
-- Payment reference verification
-- Payment amount tracking
-- Transaction status handling
-- Duplicate payment protection
-
-### Orders
-- Automatic order creation after successful payment verification
-- Order items stored separately
-- Player ID and server ID storage
-- Order history
-- Order status management
-- Order totals and payment amounts
-
-### Game Top-Up Integration
-
-The platform is designed to integrate with third-party game top-up APIs for automated fulfillment.
-
-The intended flow is:
-
-1. Customer selects a product
-2. Customer enters game account information
-3. Player information is validated
-4. Customer completes payment
-5. Payment is verified
-6. The top-up provider receives the order
-7. The customer receives the purchased digital product
-
-## 🛠️ Tech Stack
-
-### Frontend
-- HTML
-- CSS
-- JavaScript
-
-### Backend
-- Node.js
-- Express.js
-
-### Database
-- SQLite
-- better-sqlite3
-
-### Authentication
-- express-session
-- bcrypt
-
-### Payments
-- Paystack API
-
-### HTTP/API
-- Axios
-
-## 📁 Project Structure
+## Project structure
 
 ```text
 hiro-store/
-│
-├── admin/
-│   ├── admin.css
-│   ├── admin.js
-│   └── index.html
-│
-├── img/
-│   └── Store images and assets
-│
-├── server/
-│   └── server.js
-│
-├── app.js
-├── index.html
-├── style.css
-├── .gitignore
-└── README.md
+├── server.js                 # Application composition root and startup
+├── hiro-finance.js            # Paystack fee and supplier-cost accounting
+├── src/
+│   ├── database.js            # SQLite connection, schema and store defaults
+│   ├── services/
+│   │   └── fzr.js             # Player validation, top-ups and supplier polling
+│   └── routes/
+│       ├── auth.js            # Signup, login, profile and password recovery
+│       ├── support.js         # Complaints and support conversations
+│       ├── store.js           # Public store, checkout and payment verification
+│       ├── orders.js          # Customer order history and order endpoints
+│       ├── reconciliation.js  # Unmatched Paystack payment recovery
+│       ├── admin.js           # Admin route-module composer
+│       ├── admin-settings.js  # Store settings and system status
+│       ├── admin-fulfillment.js
+│       ├── admin-analytics.js
+│       └── admin-management.js
+└── public/
+    ├── css/
+    │   └── pages/             # Page-specific stylesheets
+    ├── img/                   # Store images and assets
+    ├── index.html             # Customer storefront
+    ├── admin.html             # Admin dashboard
+    └── ...
+```
+
+## Run locally
+
+1. Install dependencies with `npm install`.
+2. Configure the required environment variables in your local `.env` file.
+3. Start the application with `npm start`.
+4. Run the JavaScript syntax checks with `npm test`.
+
+Do not commit `.env`, database files, API keys, or session secrets.
+
+## Important payment and fulfillment behaviour
+
+- Paystack webhook signatures and payment amounts are verified server-side.
+- Orders are only marked paid after a verified payment.
+- Supplier fulfillment is handled separately from payment verification.
+- Unmatched successful payments can be reviewed and recovered by an administrator.
+- Keep the payment and fulfillment flows covered by behavioural tests before deploying structural changes to production.
