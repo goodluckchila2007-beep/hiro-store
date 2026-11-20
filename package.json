@@ -7,7 +7,7 @@
   "scripts": {
     "test": "npm run check",
     "start": "node server.js",
-    "check": "node --check server.js && node --check src/database.js && node --check src/services/fzr.js && node --check src/routes/auth.js && node --check src/routes/support.js && node --check src/routes/store.js && node --check src/routes/orders.js && node --check src/routes/reconciliation.js && node --check src/routes/admin.js && node --check src/routes/admin-settings.js && node --check src/routes/admin-fulfillment.js && node --check src/routes/admin-analytics.js && node --check src/routes/admin-management.js"
+    "check": "node --check server.js && node --check src/database.js && node --check src/services/fzr.js && node --check src/routes/auth.js && node --check src/routes/support.js && node --check src/routes/store.js && node --check src/routes/orders.js && node --check src/routes/reconciliation.js && node --check src/routes/admin.js && node --check src/routes/admin-settings.js && node --check src/routes/admin-fulfillment.js && node --check src/routes/admin-analytics.js && node --check src/routes/admin-management.js && node --check hiro-finance.js && node --check public/app.js && node --check public/admin.js && node --check public/orders.js && node --check public/profile.js && node --check public/reset-password.js && node --check public/verify-email.js"
   },
   "keywords": [],
   "author": "",
