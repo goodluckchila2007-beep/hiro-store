@@ -1985,7 +1985,6 @@ const routeContext = {
     requireAdmin,
     computeOrderDisplayStatus,
     expireOldPendingOrders,
-    routeContext,
     db,
     getSetting,
     setSetting
