@@ -1,7 +1,7 @@
 "use strict";
 
 /** FZR Cards integration: player validation, top-up submission and order polling. */
-module.exports = function createFzrService({ app, db, axios, getSetting, setSetting, logger, apiLimiter, FZR_EXCHANGE_RATE, sendFulfillmentFailureAlert }) {
+module.exports = function createFzrService({ app, db, axios, getSetting, setSetting, logger, apiLimiter, FZR_EXCHANGE_RATE, PAYSTACK_SECRET_KEY, requireAdmin, sendFulfillmentFailureAlert }) {
     const FZR_API_URL = "https://api.fzr.cards/api/v2";
 
     app.post("/api/validate-player", apiLimiter, async (req, res) => {
