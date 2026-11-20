@@ -1158,6 +1158,8 @@ const {
     logger,
     apiLimiter,
     FZR_EXCHANGE_RATE,
+    PAYSTACK_SECRET_KEY,
+    requireAdmin,
     sendFulfillmentFailureAlert
 });
 
