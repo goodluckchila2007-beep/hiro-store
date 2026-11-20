@@ -16,6 +16,7 @@ module.exports = function registerAdminSettingsRoutes(context) {
         crypto,
         nodemailer,
         smtpStatus,
+        getSmtpStatus,
         app,
         PORT,
         FZR_EXCHANGE_RATE,
@@ -402,7 +403,7 @@ module.exports = function registerAdminSettingsRoutes(context) {
         
                         smtp: {
                             status:
-                                smtpStatus
+                                getSmtpStatus()
                         },
         
                         environment:
