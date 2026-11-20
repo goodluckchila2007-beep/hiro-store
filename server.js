@@ -1467,18 +1467,6 @@ const routeContext = {
     now,
     upsertFzrProduct,
     syncFzrProducts,
-    FZR_API_URL,
-    finance,
-    mapFzrStatusToFulfillmentStatus,
-    fzrFailureDetails,
-    createFzrTopup,
-    getFzrOrderStatus,
-    fzrPollState,
-    fzrCheckerRunning,
-    FZR_POLL_BASE_DELAY,
-    FZR_POLL_MAX_DELAY,
-    FZR_POLL_MAX_FAILURES,
-    checkPendingFzrOrders,
     escapeHtmlForEmail,
     sendFulfillmentFailureAlert,
     requireLogin,
@@ -1487,7 +1475,13 @@ const routeContext = {
     expireOldPendingOrders,
     db,
     getSetting,
-    setSetting
+    setSetting,
+    finance,
+    mapFzrStatusToFulfillmentStatus,
+    fzrFailureDetails,
+    createFzrTopup,
+    getFzrOrderStatus,
+    checkPendingFzrOrders
 };
 
 require("./src/routes/auth")(routeContext);
