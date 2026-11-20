@@ -1446,6 +1446,7 @@ const routeContext = {
     crypto,
     nodemailer,
     smtpStatus,
+    getSmtpStatus: () => smtpStatus,
     app,
     PORT,
     FZR_EXCHANGE_RATE,
